@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Airbnb Mini</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 text-gray-800 flex flex-col min-h-screen">
+    <nav class="bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center shadow-sm">
+        <a href="/" class="text-rose-500 font-bold text-xl tracking-wide">airbnb<span class="text-gray-800">mini</span></a>
+        <div class="flex items-center gap-4">
+            <% if (currentUser) { %>
+                <span class="text-sm font-medium text-gray-600">Hello, <%= currentUser.name %> (<%= currentUser.role %>)</span>
+                <% if (currentUser.role === 'admin') { %>
+                    <a href="/admin" class="text-sm font-semibold hover:text-rose-500">Admin Portal</a>
+                <% } else { %>
+                    <a href="/user/dashboard" class="text-sm font-semibold hover:text-rose-500">My Dashboard</a>
+                <% } %>
+                <a href="/logout" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-full text-sm font-medium">Logout</a>
+            <% } else { %>
+                <a href="/login" class="text-sm font-semibold hover:text-rose-500">Log in</a>
+                <a href="/register" class="bg-rose-500 hover:bg-rose-600 text-white px-4 py-2 rounded-full text-sm font-semibold">Sign up</a>
+            <% } %>
+        </div>
+    </nav>
+    <main class="flex-grow">
