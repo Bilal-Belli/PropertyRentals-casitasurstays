@@ -1,0 +1,30 @@
+<%- include('partials/header') %>
+<div class="max-w-7xl mx-auto px-4 py-8">
+    <!-- Search Bar -->
+    <form action="/" method="GET" class="bg-white border border-gray-200 rounded-full shadow-md p-3 max-w-2xl mx-auto flex flex-col md:flex-row gap-2 items-center mb-10">
+        <input type="text" name="location" placeholder="Search by location..." value="<%= query.location || '' %>" class="flex-grow px-4 py-2 text-sm focus:outline-none">
+        <input type="number" name="maxPrice" placeholder="Max price ($)" value="<%= query.maxPrice || '' %>" class="w-36 px-4 py-2 text-sm focus:outline-none border-t md:border-t-0 md:border-l border-gray-200">
+        <button type="submit" class="bg-rose-500 hover:bg-rose-600 text-white px-6 py-2 rounded-full font-semibold text-sm w-full md:w-auto">Search</button>
+    </form>
+
+    <!-- Properties Grid -->
+    <h2 class="text-2xl font-bold mb-6">Explore Properties</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        <% if (properties.length === 0) { %>
+            <p class="text-gray-500 col-span-full">No properties found.</p>
+        <% } else { %>
+            <% properties.forEach(prop => { %>
+                <div class="bg-white rounded-xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-md transition flex flex-col">
+                    <img src="/uploads/<%= prop.image %>" alt="<%= prop.title %>" class="h-48 w-full object-cover" onerror="this.src='https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=500'">
+                    <div class="p-4 flex flex-col flex-grow">
+                        <h3 class="font-bold text-base mb-1"><%= prop.title %></h3>
+                        <p class="text-gray-500 text-sm mb-2"><%= prop.location %></p>
+                        <p class="mt-auto font-semibold text-gray-900">$<%= prop.price %> <span class="text-xs font-normal text-gray-500">night</span></p>
+                        <a href="/property/<%= prop.id %>" class="mt-4 block text-center bg-rose-500 hover:bg-rose-600 text-white text-sm font-semibold py-2 rounded-lg">View Details</a>
+                    </div>
+                </div>
+            <% }) %>
+        <% } %>
+    </div>
+</div>
+<%- include('partials/footer') %>

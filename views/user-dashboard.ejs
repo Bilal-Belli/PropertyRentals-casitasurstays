@@ -1,0 +1,37 @@
+<%- include('partials/header') %>
+<div class="max-w-5xl mx-auto px-4 py-8">
+    <h1 class="text-2xl font-bold mb-6">My Reservations</h1>
+    <div class="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+        <% if (reservations.length === 0) { %>
+            <p class="p-6 text-gray-500 text-sm">You have made no reservation requests yet.</p>
+        <% } else { %>
+            <table class="w-full text-left border-collapse text-sm">
+                <thead>
+                    <tr class="bg-gray-50 border-b border-gray-200 text-gray-600">
+                        <th class="p-4">Property</th>
+                        <th class="p-4">Check-in</th>
+                        <th class="p-4">Check-out</th>
+                        <th class="p-4">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% reservations.forEach(resv => { %>
+                        <% const prop = properties.find(p => p.id === resv.propertyId); %>
+                        <tr class="border-b border-gray-100 hover:bg-gray-50">
+                            <td class="p-4 font-semibold"><%= prop ? prop.title : 'Unknown Property' %></td>
+                            <td class="p-4 text-gray-600"><%= resv.checkIn %></td>
+                            <td class="p-4 text-gray-600"><%= resv.checkOut %></td>
+                            <td class="p-4">
+                                <span class="px-2.5 py-1 rounded-full text-xs font-semibold 
+                                    <%= resv.status === 'Accepted' ? 'bg-green-100 text-green-700' : resv.status === 'Declined' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700' %>">
+                                    <%= resv.status %>
+                                </span>
+                            </td>
+                        </tr>
+                    <% }) %>
+                </tbody>
+            </table>
+        <% } %>
+    </div>
+</div>
+<%- include('partials/footer') %>
