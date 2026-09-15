@@ -1,0 +1,7 @@
+/data
+
+/public/uploads/
+
+/node_modules
+
+.env
