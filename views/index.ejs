@@ -1,30 +1,139 @@
 <%- include('partials/header') %>
 <div class="max-w-7xl mx-auto px-4 py-8">
-    <!-- Search Bar -->
-    <form action="/" method="GET" class="bg-white border border-gray-200 rounded-full shadow-md p-3 max-w-2xl mx-auto flex flex-col md:flex-row gap-2 items-center mb-10">
-        <input type="text" name="location" placeholder="Search by location..." value="<%= query.location || '' %>" class="flex-grow px-4 py-2 text-sm focus:outline-none">
-        <input type="number" name="maxPrice" placeholder="Max price ($)" value="<%= query.maxPrice || '' %>" class="w-36 px-4 py-2 text-sm focus:outline-none border-t md:border-t-0 md:border-l border-gray-200">
-        <button type="submit" class="bg-rose-500 hover:bg-rose-600 text-white px-6 py-2 rounded-full font-semibold text-sm w-full md:w-auto">Search</button>
-    </form>
+    <!-- Realtime Search Bar -->
+    <div class="bg-white border border-gray-200 rounded-3xl md:rounded-full shadow-md p-3 max-w-3xl mx-auto flex flex-col md:flex-row gap-2 items-stretch md:items-center mb-10 relative">
+        <div class="relative flex-grow w-full md:w-auto px-3 py-1 md:py-0">
+            <label class="block md:hidden text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Location</label>
+            <input type="text" id="locationInput" placeholder="Search by location..." value="<%= query.location || '' %>" autocomplete="off" class="w-full text-sm focus:outline-none bg-transparent">
+            <!-- Autocomplete Dropdown Results Container -->
+            <div id="autocompleteResults" class="absolute left-0 right-0 top-full mt-2 bg-white border border-gray-200 rounded-2xl shadow-lg hidden z-50 max-h-60 overflow-y-auto"></div>
+        </div>
+        
+        <div class="w-full md:w-auto px-3 py-1 md:py-0 border-t md:border-t-0 md:border-l border-gray-200">
+            <label class="block md:hidden text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Min Beds</label>
+            <input type="number" id="minBedsInput" placeholder="Min beds" min="1" value="<%= query.minBeds || '' %>" class="w-full md:w-28 text-sm focus:outline-none bg-transparent">
+        </div>
+
+        <div class="w-full md:w-auto px-3 py-1 md:py-0 border-t md:border-t-0 md:border-l border-gray-200">
+            <label class="block md:hidden text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Max Price</label>
+            <input type="number" id="maxPriceInput" placeholder="Max price ($)" value="<%= query.maxPrice || '' %>" class="w-full md:w-36 text-sm focus:outline-none bg-transparent">
+        </div>
+    </div>
 
     <!-- Properties Grid -->
-    <h2 class="text-2xl font-bold mb-6">Explore Properties</h2>
-    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+    <% 
+        const uniqueLocations = (typeof properties !== 'undefined' && properties) ? [...new Set(properties.map(p => p.location).filter(Boolean))] : [];
+    %>
+
+    <div id="propertiesGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
         <% if (properties.length === 0) { %>
             <p class="text-gray-500 col-span-full">No properties found.</p>
         <% } else { %>
             <% properties.forEach(prop => { %>
-                <div class="bg-white rounded-xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-md transition flex flex-col">
-                    <img src="/uploads/<%= prop.image %>" alt="<%= prop.title %>" class="h-48 w-full object-cover" onerror="this.src='https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=500'">
+                <% 
+                    // Parse beds number from sleepingArrangements or fallback to 1 if missing/invalid
+                    let bedCount = parseInt(prop.sleepingArrangements) || prop.guestsCapacity || 1;
+                %>
+                <a href="/property/<%= prop.id %>" class="property-card bg-white rounded-xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-md transition flex flex-col group" data-location="<%= (prop.location || '').toLowerCase() %>" data-price="<%= prop.price %>" data-beds="<%= bedCount %>">
+                    <img src="/uploads/<%= prop.image %>" alt="<%= prop.title %>" class="h-48 w-full object-cover group-hover:scale-105 transition duration-300" onerror="this.src='https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=500'">
                     <div class="p-4 flex flex-col flex-grow">
-                        <h3 class="font-bold text-base mb-1"><%= prop.title %></h3>
-                        <p class="text-gray-500 text-sm mb-2"><%= prop.location %></p>
+                        <h3 class="font-bold text-base mb-1 group-hover:text-rose-500 transition"><%= prop.title %></h3>
+                        <p class="text-gray-500 text-sm mb-1"><%= prop.location %></p>
+                        <p class="text-xs text-gray-400 mb-2">Beds: <%= bedCount %> &bull; Baths: <%= prop.bathrooms || 1 %></p>
                         <p class="mt-auto font-semibold text-gray-900">$<%= prop.price %> <span class="text-xs font-normal text-gray-500">night</span></p>
-                        <a href="/property/<%= prop.id %>" class="mt-4 block text-center bg-rose-500 hover:bg-rose-600 text-white text-sm font-semibold py-2 rounded-lg">View Details</a>
                     </div>
-                </div>
+                </a>
             <% }) %>
         <% } %>
+        <p id="noPropertiesMsg" class="text-gray-500 col-span-full hidden text-center py-12">No properties found matching your filters.</p>
     </div>
 </div>
+
+<script>
+    const availableLocations = <%- JSON.stringify(uniqueLocations) %>;
+    const locationInput = document.getElementById('locationInput');
+    const minBedsInput = document.getElementById('minBedsInput');
+    const maxPriceInput = document.getElementById('maxPriceInput');
+    const resultsContainer = document.getElementById('autocompleteResults');
+    const propertyCards = document.querySelectorAll('.property-card');
+    const noPropertiesMsg = document.getElementById('noPropertiesMsg');
+
+    function filterProperties() {
+        const locQuery = locationInput.value.toLowerCase().trim();
+        const minBedsQuery = parseInt(minBedsInput.value);
+        const priceQuery = parseFloat(maxPriceInput.value);
+        let visibleCount = 0;
+
+        propertyCards.forEach(card => {
+            const cardLocation = card.getAttribute('data-location');
+            const cardBeds = parseInt(card.getAttribute('data-beds')) || 1;
+            const cardPrice = parseFloat(card.getAttribute('data-price'));
+
+            const matchesLocation = !locQuery || cardLocation.includes(locQuery);
+            const matchesBeds = isNaN(minBedsQuery) || cardBeds >= minBedsQuery;
+            const matchesPrice = isNaN(priceQuery) || cardPrice <= priceQuery;
+
+            if (matchesLocation && matchesBeds && matchesPrice) {
+                card.classList.remove('hidden');
+                visibleCount++;
+            } else {
+                card.classList.add('hidden');
+            }
+        });
+
+        if (noPropertiesMsg) {
+            if (visibleCount === 0) {
+                noPropertiesMsg.classList.remove('hidden');
+            } else {
+                noPropertiesMsg.classList.add('hidden');
+            }
+        }
+    }
+
+    locationInput.addEventListener('input', () => {
+        filterProperties();
+
+        const query = locationInput.value.toLowerCase().trim();
+        resultsContainer.innerHTML = '';
+
+        if (!query || availableLocations.length === 0) {
+            resultsContainer.classList.add('hidden');
+            return;
+        }
+
+        const matches = availableLocations.filter(loc => loc.toLowerCase().includes(query));
+
+        if (matches.length === 0) {
+            resultsContainer.classList.add('hidden');
+            return;
+        }
+
+        matches.forEach(city => {
+            const div = document.createElement('div');
+            div.className = "px-4 py-2.5 text-xs text-gray-700 hover:bg-rose-50 hover:text-rose-600 cursor-pointer border-b border-gray-100 last:border-b-0 truncate transition font-medium";
+            div.textContent = city;
+            div.onclick = () => {
+                locationInput.value = city;
+                resultsContainer.classList.add('hidden');
+                filterProperties();
+            };
+            resultsContainer.appendChild(div);
+        });
+
+        resultsContainer.classList.remove('hidden');
+    });
+
+    minBedsInput.addEventListener('input', filterProperties);
+    maxPriceInput.addEventListener('input', filterProperties);
+
+    document.addEventListener('click', (e) => {
+        if (!locationInput.contains(e.target) && !resultsContainer.contains(e.target)) {
+            resultsContainer.classList.add('hidden');
+        }
+    });
+
+    if (locationInput.value || minBedsInput.value || maxPriceInput.value) {
+        filterProperties();
+    }
+</script>
 <%- include('partials/footer') %>
