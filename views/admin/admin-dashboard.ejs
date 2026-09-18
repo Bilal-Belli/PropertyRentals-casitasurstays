@@ -1,18 +1,5 @@
 <%- include('../partials/header') %>
-<div class="max-w-7xl mx-auto px-4 py-8">
-    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-        <h1 class="text-2xl font-bold">Admin Portal</h1>
-        <a href="/admin/property/add" class="bg-rose-500 hover:bg-rose-600 text-white px-4 py-2 rounded-lg text-sm font-semibold transition">Add New Property</a>
-    </div>
-
-    <!-- Tab Navigation Buttons -->
-    <div class="flex flex-wrap gap-2 border-b border-gray-200 mb-6">
-        <button onclick="switchTab(event, 'properties')" class="tab-btn px-4 py-2.5 text-sm font-semibold border-b-2 border-rose-500 text-rose-600 transition">Properties Management</button>
-        <button onclick="switchTab(event, 'messages')" class="tab-btn px-4 py-2.5 text-sm font-semibold border-b-2 border-transparent text-gray-500 hover:text-gray-700 transition">Messages</button>
-        <button onclick="switchTab(event, 'reservations')" class="tab-btn px-4 py-2.5 text-sm font-semibold border-b-2 border-transparent text-gray-500 hover:text-gray-700 transition">Reservation Requests</button>
-        <button onclick="switchTab(event, 'users')" class="tab-btn px-4 py-2.5 text-sm font-semibold border-b-2 border-transparent text-gray-500 hover:text-gray-700 transition">Registered Users</button>
-    </div>
-
+<div class="max-w-7xl mx-auto px-4 py-6 md:py-8">
     <!-- Tab 1: Properties Management -->
     <div id="properties" class="tab-content">
         <%- include('tab-properties') %>
@@ -37,38 +24,29 @@
 <!-- Airbnb-Style Native Interactive Calendar Modal Partial -->
 <%- include('calendar-modal') %>
 
-<!-- Embed all messages data securely for the messenger UI -->
+<!-- Embed all conversation stack data securely -->
 <script>
-    let allMessagesData = <%- JSON.stringify((typeof messages !== 'undefined' && messages) ? messages : []) %>;
-    let activeChatUser = null;
-    let activePropertyId = null;
+    let allConversationsData = <%- JSON.stringify((typeof messages !== 'undefined' && messages) ? messages : []) %>;
+    let activeConversationId = null;
 </script>
 
 <script>
     function switchTab(evt, tabId) {
         document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
-        document.querySelectorAll('.tab-btn').forEach(b => {
-            b.classList.remove('border-rose-500', 'text-rose-600');
-            b.classList.add('border-transparent', 'text-gray-500');
-        });
-        document.getElementById(tabId).classList.remove('hidden');
-        
-        // If evt is a real click event, use it; otherwise find the button by tabId
-        if (evt && evt.currentTarget) {
-            evt.currentTarget.classList.remove('border-transparent', 'text-gray-500');
-            evt.currentTarget.classList.add('border-rose-500', 'text-rose-600');
-        } else {
-            // Find button matching this tabId and highlight it
-            document.querySelectorAll('.tab-btn').forEach(b => {
-                if (b.getAttribute('onclick') && b.getAttribute('onclick').includes(tabId)) {
-                    b.classList.remove('border-transparent', 'text-gray-500');
-                    b.classList.add('border-rose-500', 'text-rose-600');
-                }
-            });
+        const targetTab = document.getElementById(tabId);
+        if (targetTab) {
+            targetTab.classList.remove('hidden');
         }
 
-        // Save active tab to localStorage so it persists across refreshes/submits
         localStorage.setItem('activeAdminTab', tabId);
+
+        // If switching to messages tab, auto-select first conversation
+        if (tabId === 'messages') {
+            const firstChat = document.querySelector('.conversation-item');
+            if (firstChat && !activeConversationId) {
+                selectConversation(firstChat.getAttribute('data-conversation'));
+            }
+        }
     }
 
     // Restore active tab and chat selection on page load
@@ -78,14 +56,9 @@
             switchTab(null, savedTab);
         }
 
-        // Auto-select first conversation if available
         const firstChat = document.querySelector('.conversation-item');
         if (firstChat) {
-            const firstThreadKey = firstChat.getAttribute('data-thread');
-            if (firstThreadKey) {
-                const [uName, pId] = firstThreadKey.split('___');
-                selectConversation(uName, pId);
-            }
+            selectConversation(firstChat.getAttribute('data-conversation'));
         }
     });
 
@@ -152,91 +125,6 @@
         }
     }
 
-    // Messenger Split Inbox & Live Admin Reply Logic
-    function selectConversation(userName, propertyId) {
-        activeChatUser = userName;
-        activePropertyId = propertyId;
-        const targetThreadKey = `${userName}___${propertyId}`;
-
-        document.querySelectorAll('.conversation-item').forEach(el => {
-            el.classList.remove('bg-rose-50/60', 'border-l-4', 'border-rose-500');
-            if (el.getAttribute('data-thread') === targetThreadKey) {
-                el.classList.add('bg-rose-50/60', 'border-l-4', 'border-rose-500');
-            }
-        });
-
-        const headerEl = document.getElementById('activeChatHeader');
-        const feedEl = document.getElementById('activeChatFeed');
-        const replyFormEl = document.getElementById('adminReplyForm');
-
-        headerEl.innerHTML = `<span class="font-bold text-gray-900">Chat with ${userName} <span class="text-xs font-normal text-gray-500">(Property ID: ${propertyId})</span></span>`;
-        replyFormEl.classList.remove('hidden');
-        feedEl.innerHTML = '';
-
-        const threadMsgs = allMessagesData.filter(m => (m.userName || 'Guest User') === userName && String(m.propertyId) === String(propertyId));
-
-        if (threadMsgs.length === 0) {
-            feedEl.innerHTML = '<div class="text-center text-gray-400 text-xs my-auto">No messages in this chat.</div>';
-            return;
-        }
-
-        threadMsgs.forEach(msg => {
-            appendMessageBubble(msg);
-        });
-        feedEl.scrollTop = feedEl.scrollHeight;
-    }
-    
-    function appendMessageBubble(msg) {
-        const feedEl = document.getElementById('activeChatFeed');
-        const isAdmin = msg.sender === 'admin';
-
-        const wrapper = document.createElement('div');
-        wrapper.className = `flex flex-col ${isAdmin ? 'items-end' : 'items-start'} mb-3`;
-        wrapper.innerHTML = `
-            <div class="flex items-center gap-2 px-1 mb-1">
-                <span class="text-[9px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full font-semibold">Property ID: ${msg.propertyId || 'N/A'}</span>
-            </div>
-            <div class="max-w-[75%] rounded-2xl px-4 py-3 text-sm shadow-sm leading-relaxed ${isAdmin ? 'bg-rose-500 text-white rounded-br-none' : 'bg-gray-100 text-gray-800 rounded-bl-none'}">
-                ${escapeHtml(msg.message)}
-            </div>
-            <span class="text-[9px] text-gray-400 px-1 mt-1">${new Date(msg.date).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</span>
-        `;
-        feedEl.appendChild(wrapper);
-        feedEl.scrollTop = feedEl.scrollHeight;
-    }
-
-    function sendAdminReply(e) {
-        e.preventDefault();
-        const input = document.getElementById('adminReplyInput');
-        const text = input.value.trim();
-        if (!text || !activeChatUser) return;
-
-        const payload = {
-            userName: activeChatUser,
-            propertyId: activePropertyId || 'General',
-            message: text
-        };
-
-        fetch('/admin/message/reply', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                allMessagesData.push(data.message);
-                appendMessageBubble(data.message);
-                input.value = '';
-            }
-        })
-        .catch(err => console.error('Error sending reply:', err));
-    }
-
-    function escapeHtml(str) {
-        return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    }
-
     // Native Airbnb Range Selection & Unchecking Controller Logic
     let currentYear = new Date().getFullYear();
     let currentMonth = new Date().getMonth();
@@ -280,6 +168,7 @@
     function renderNativeCalendar() {
         const gridEl = document.getElementById('nativeCalendarGrid');
         const labelEl = document.getElementById('calendarMonthYearLabel');
+        if (!gridEl || !labelEl) return;
         gridEl.innerHTML = '';
 
         const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -346,14 +235,16 @@
 
                     rangeStartDate = null;
                 }
-                document.getElementById('unavailableDatesInput').value = Array.from(blockedDatesSet).sort().join(', ');
+                const inputEl = document.getElementById('unavailableDatesInput');
+                if (inputEl) inputEl.value = Array.from(blockedDatesSet).sort().join(', ');
                 renderNativeCalendar();
             };
 
             gridEl.appendChild(dayBtn);
         }
 
-        document.getElementById('unavailableDatesInput').value = Array.from(blockedDatesSet).sort().join(', ');
+        const inputEl = document.getElementById('unavailableDatesInput');
+        if (inputEl) inputEl.value = Array.from(blockedDatesSet).sort().join(', ');
     }
 
     window.clearAllBlockedDates = function() {
