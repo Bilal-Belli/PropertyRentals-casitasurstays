@@ -1,55 +1,522 @@
 <%- include('partials/header') %>
-<div class="max-w-4xl mx-auto px-4 py-8">
-    <h1 class="text-3xl font-bold mb-2"><%= property.title %></h1>
-    <p class="text-gray-600 mb-4"><%= property.location %></p>
-
-    <div class="rounded-2xl overflow-hidden shadow-md mb-8 h-96">
-        <img src="/uploads/<%= property.image %>" alt="<%= property.title %>" class="w-full h-full object-cover" onerror="this.src='https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800'">
+<div class="max-w-6xl mx-auto px-4 py-8">
+    <!-- Back Button & Header Section -->
+    <div class="mb-6">
+        <a href="/" class="inline-flex items-center gap-1 text-xs font-semibold text-gray-600 hover:text-rose-500 bg-white border border-gray-200 px-3 py-1.5 rounded-lg shadow-sm transition mb-4">
+            &larr; Back to Listings
+        </a>
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+                <h1 class="text-3xl font-extrabold text-gray-900 tracking-tight"><%= property.title %></h1>
+                <p class="text-gray-500 text-sm mt-1"><%= property.location %> &bull; <span class="font-semibold text-gray-700"><%= property.propertyType || 'Property' %></span></p>
+            </div>
+            <div class="flex items-center gap-3">
+                <span class="text-2xl font-extrabold text-gray-900">$<%= property.price %></span>
+                <span class="text-sm text-gray-500">/ night</span>
+            </div>
+        </div>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-        <div class="md:col-span-2">
-            <h2 class="text-xl font-bold mb-2">About this place</h2>
-            <p class="text-gray-700 leading-relaxed mb-6"><%= property.description %></p>
+    <!-- Professional Gallery Grid & Thumbnail Pipe -->
+    <% 
+        let allImgs = [];
+        if (property.images && property.images.length > 0) {
+            allImgs = property.images;
+        } else if (property.image) {
+            allImgs = [property.image];
+        } else {
+            allImgs = ['default-chalet.jpg'];
+        }
+    %>
 
-            <h3 class="text-lg font-bold mb-2">Unavailable Calendar Dates</h3>
-            <div class="bg-gray-100 p-4 rounded-lg text-sm text-gray-700 mb-6">
-                <% if (property.unavailableDates && property.unavailableDates.length > 0) { %>
-                    <ul class="list-disc list-inside">
-                        <% property.unavailableDates.forEach(date => { %>
-                            <li><%= date %></li>
-                        <% }) %>
-                    </ul>
-                <% } else { %>
-                    <p>No booked/unavailable dates currently.</p>
+    <% if (allImgs.length > 1) { %>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4 rounded-3xl overflow-hidden shadow-lg border border-gray-100">
+            <div onclick="openLightbox(0)" class="md:col-span-2 h-[420px] cursor-pointer overflow-hidden relative group">
+                <img src="/uploads/<%= allImgs[0] %>" alt="Main Photo" class="w-full h-full object-cover group-hover:scale-105 transition duration-300 pointer-events-none">
+                <div class="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white font-semibold text-sm">Click to expand gallery</div>
+            </div>
+            <div class="hidden md:grid grid-cols-1 col-span-2 gap-3 h-[420px]">
+                <% allImgs.slice(1, 3).forEach((img, idx) => { %>
+                    <div onclick="openLightbox(<%= idx + 1 %>)" class="h-[204px] cursor-pointer overflow-hidden relative group rounded-xl">
+                        <img src="/uploads/<%= img %>" alt="Gallery Photo" class="w-full h-full object-cover group-hover:scale-105 transition duration-300 pointer-events-none">
+                    </div>
+                <% }) %>
+            </div>
+        </div>
+
+        <!-- Scrollable Thumbnail Pipe for All Remaining Images -->
+        <div class="flex gap-3 overflow-x-auto pb-4 mb-10 scrollbar-thin">
+            <% allImgs.forEach((img, idx) => { %>
+                <div onclick="openLightbox(<%= idx %>)" class="flex-shrink-0 w-24 h-20 rounded-xl overflow-hidden cursor-pointer border-2 border-transparent hover:border-rose-500 transition shadow-sm">
+                    <img src="/uploads/<%= img %>" alt="Thumbnail <%= idx + 1 %>" class="w-full h-full object-cover pointer-events-none">
+                </div>
+            <% }) %>
+        </div>
+    <% } else { %>
+        <div onclick="openLightbox(0)" class="rounded-3xl overflow-hidden shadow-lg mb-10 h-[420px] cursor-pointer relative group">
+            <img src="/uploads/<%= allImgs[0] %>" alt="<%= property.title %>" class="w-full h-full object-cover group-hover:scale-105 transition duration-300 pointer-events-none">
+        </div>
+    <% } %>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-12 items-start">
+        <!-- Left Main Content Column -->
+        <div class="lg:col-span-2 space-y-8">
+            
+            <!-- Quick Stats Bar -->
+            <div class="bg-white border border-gray-200 p-5 rounded-2xl flex justify-between items-center text-sm text-gray-700 shadow-sm">
+                <div class="text-center"><strong class="block text-base text-gray-900"><%= property.guestsCapacity %></strong> Guests</div>
+                <div class="text-center"><strong class="block text-base text-gray-900"><%= property.sleepingArrangements || 'Standard' %></strong> Beds</div>
+                <div class="text-center"><strong class="block text-base text-gray-900"><%= property.bathrooms %></strong> Baths</div>
+                <% if (property.squareFeet) { %>
+                    <div class="text-center"><strong class="block text-base text-gray-900"><%= property.squareFeet %></strong> Sq Ft</div>
                 <% } %>
             </div>
 
-            <!-- Contact Host Form -->
-            <div class="bg-white border border-gray-200 p-6 rounded-xl shadow-sm">
-                <h3 class="font-bold text-lg mb-3">Contact Host</h3>
-                <form action="/property/<%= property.id %>/message" method="POST">
-                    <textarea name="message" rows="3" placeholder="Ask the host a question..." required class="w-full border border-gray-300 rounded-lg p-3 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-rose-500"></textarea>
-                    <button type="submit" class="bg-gray-900 hover:bg-black text-white text-sm font-semibold px-4 py-2 rounded-lg">Send Message</button>
-                </form>
+            <!-- About this place -->
+            <div class="bg-white border border-gray-200 p-6 rounded-2xl shadow-sm">
+                <h2 class="text-xl font-bold mb-3 text-gray-900">About this place</h2>
+                <p class="text-gray-600 leading-relaxed text-sm whitespace-pre-line"><%= property.description %></p>
+            </div>
+
+            <!-- Promo Video Section -->
+            <% if (property.promoVideo) { %>
+                <div class="bg-white border border-gray-200 p-6 rounded-2xl shadow-sm">
+                    <h2 class="text-xl font-bold mb-3 text-gray-900">Property Video Tour</h2>
+                    <video controls class="w-full rounded-xl shadow-sm max-h-[400px] object-cover bg-black">
+                        <source src="/uploads/<%= property.promoVideo %>" type="video/mp4">
+                        Your browser does not support the video tag.
+                    </video>
+                </div>
+            <% } %>
+
+            <!-- Amenities & Rules Cards -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <% if (property.exactAddress) { %>
+                    <div class="bg-white border border-gray-200 p-4 rounded-2xl shadow-sm">
+                        <h3 class="font-bold text-xs text-gray-900 uppercase tracking-wider mb-1">Exact Address</h3>
+                        <p class="text-sm text-gray-600"><%= property.exactAddress %></p>
+                    </div>
+                <% } %>
+                <% if (property.devices) { %>
+                    <div class="bg-white border border-gray-200 p-4 rounded-2xl shadow-sm">
+                        <h3 class="font-bold text-xs text-gray-900 uppercase tracking-wider mb-1">Devices & Amenities</h3>
+                        <p class="text-sm text-gray-600"><%= property.devices %></p>
+                    </div>
+                <% } %>
+                <% if (property.houseRules) { %>
+                    <div class="bg-white border border-gray-200 p-4 rounded-2xl shadow-sm">
+                        <h3 class="font-bold text-xs text-gray-900 uppercase tracking-wider mb-1">House Rules</h3>
+                        <p class="text-sm text-gray-600"><%= property.houseRules %></p>
+                    </div>
+                <% } %>
+                <% if (property.comingLeavingRules) { %>
+                    <div class="bg-white border border-gray-200 p-4 rounded-2xl shadow-sm">
+                        <h3 class="font-bold text-xs text-gray-900 uppercase tracking-wider mb-1">Check-in & Checkout</h3>
+                        <p class="text-sm text-gray-600"><%= property.comingLeavingRules %></p>
+                    </div>
+                <% } %>
             </div>
         </div>
 
-        <!-- Reservation Box -->
-        <div class="bg-white border border-gray-200 p-6 rounded-xl shadow-md h-fit">
-            <div class="text-xl font-bold mb-4">$<%= property.price %> <span class="text-sm font-normal text-gray-500">night</span></div>
-            <form action="/property/<%= property.id %>/reserve" method="POST">
-                <div class="mb-3">
-                    <label class="block text-xs font-semibold text-gray-700 uppercase mb-1">Check-in</label>
-                    <input type="date" name="checkIn" required class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500">
+        <!-- Right Sticky Sidebar Column (Booking Card & Calendar) -->
+        <div class="space-y-6 lg:sticky lg:top-6">
+            <!-- Reservation & Message Card -->
+            <div class="bg-white border border-gray-200 p-6 rounded-3xl shadow-lg space-y-4">
+                <div class="text-2xl font-black mb-2 text-gray-900">$<%= property.price %> <span class="text-sm font-normal text-gray-500">night</span></div>
+                
+                <% if (typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'admin') { %>
+                    <div class="bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded-2xl text-xs text-center font-semibold">
+                        Admin accounts cannot make reservations or send inquiries.
+                    </div>
+                <% } else { %>
+                    <button type="button" onclick="openReservationCalendarModal()" class="w-full bg-rose-500 hover:bg-rose-600 text-white font-bold py-3.5 rounded-xl text-sm transition shadow-md shadow-rose-500/20">Request Reservation</button>
+                    <button type="button" onclick="openMessageModal()" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold py-3 rounded-xl text-sm transition">Send a Message</button>
+                <% } %>
+            </div>
+
+            <!-- Availability Calendar Viewer (Restricted from showing past months) -->
+            <div class="bg-white border border-gray-200 p-6 rounded-3xl shadow-sm">
+                <div class="flex justify-between items-center mb-4">
+                    <div>
+                        <h3 class="text-base font-bold text-gray-900">Availability Calendar</h3>
+                        <p class="text-[11px] text-gray-500">Unavailable dates are in black</p>
+                    </div>
+                    <div class="flex items-center gap-1 text-xs font-semibold">
+                        <button type="button" id="prevMonthBtn" onclick="navigatePropertyMonth(-1)" class="p-1.5 hover:bg-gray-100 rounded-full transition disabled:opacity-30 disabled:cursor-not-allowed">&#8249;</button>
+                        <span id="propMonthYearLabel" class="w-24 text-center text-gray-800 text-xs"></span>
+                        <button type="button" onclick="navigatePropertyMonth(1)" class="p-1.5 hover:bg-gray-100 rounded-full transition">&#8250;</button>
+                    </div>
                 </div>
-                <div class="mb-4">
-                    <label class="block text-xs font-semibold text-gray-700 uppercase mb-1">Check-out</label>
-                    <input type="date" name="checkOut" required class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500">
+                <div class="grid grid-cols-7 gap-1 text-center text-[10px] font-semibold text-gray-400 mb-2">
+                    <div>Su</div><div>Mo</div><div>Tu</div><div>We</div><div>Th</div><div>Fr</div><div>Sa</div>
                 </div>
-                <button type="submit" class="w-full bg-rose-500 hover:bg-rose-600 text-white font-semibold py-3 rounded-lg text-sm transition">Request Reservation</button>
-            </form>
+                <div id="propCalendarGrid" class="grid grid-cols-7 gap-1 text-center text-xs"></div>
+            </div>
         </div>
     </div>
 </div>
+
+<!-- Reservation Calendar Modal Popup -->
+<div id="reservationCalendarModal" class="fixed inset-0 bg-black/50 hidden flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl relative">
+        <div class="flex justify-between items-center mb-4 pb-2 border-b border-gray-100">
+            <div>
+                <h3 class="text-lg font-bold text-gray-900">Select Reservation Dates</h3>
+                <p id="reservationDatesInstruction" class="text-xs text-gray-500">Click check-in date, then check-out date</p>
+            </div>
+            <button onclick="closeReservationCalendarModal()" class="text-gray-400 hover:text-gray-600 text-xl font-bold bg-gray-100 hover:bg-gray-200 rounded-full w-8 h-8 flex items-center justify-center transition">&times;</button>
+        </div>
+
+        <form action="/property/<%= property.id %>/reserve" method="POST" id="reservationForm">
+            <input type="hidden" id="checkInInput" name="checkIn" required>
+            <input type="hidden" id="checkOutInput" name="checkOut" required>
+
+            <div class="flex justify-between items-center mb-4 px-2">
+                <button type="button" id="resPrevMonthBtn" onclick="navigateResModalMonth(-1)" class="p-2 hover:bg-gray-100 rounded-full transition text-gray-700 font-bold disabled:opacity-30 disabled:cursor-not-allowed">&#8249;</button>
+                <h4 id="resModalMonthYearLabel" class="text-sm font-bold text-gray-800"></h4>
+                <button type="button" onclick="navigateResModalMonth(1)" class="p-2 hover:bg-gray-100 rounded-full transition text-gray-700 font-bold">&#8250;</button>
+            </div>
+
+            <div class="grid grid-cols-7 gap-1 text-center text-xs font-semibold text-gray-400 mb-2">
+                <div>Su</div><div>Mo</div><div>Tu</div><div>We</div><div>Th</div><div>Fr</div><div>Sa</div>
+            </div>
+
+            <div id="resModalCalendarGrid" class="grid grid-cols-7 gap-1 text-center text-sm mb-6"></div>
+
+            <div class="flex justify-between items-center pt-3 border-t border-gray-100">
+                <button type="button" onclick="clearSelectedDates()" class="text-xs font-semibold text-rose-500 hover:underline">Clear dates</button>
+                <div class="flex gap-2">
+                    <button type="button" onclick="closeReservationCalendarModal()" class="px-4 py-2 rounded-xl text-xs font-semibold border border-gray-300 text-gray-700 hover:bg-gray-50 transition">Cancel</button>
+                    <button type="submit" id="submitResBtn" disabled class="px-5 py-2 rounded-xl text-xs font-semibold bg-rose-500 hover:bg-rose-600 text-white transition disabled:opacity-40 disabled:cursor-not-allowed">Confirm Request</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Send Message Modal Popup -->
+<div id="messageModal" class="fixed inset-0 bg-black/50 hidden flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl relative">
+        <div class="flex justify-between items-center mb-4 pb-2 border-b border-gray-100">
+            <div>
+                <h3 class="text-lg font-bold text-gray-900">Send Message to Host</h3>
+                <p class="text-xs text-gray-500">Property ID: <%= property.id %></p>
+            </div>
+            <button onclick="closeMessageModal()" class="text-gray-400 hover:text-gray-600 text-xl font-bold bg-gray-100 hover:bg-gray-200 rounded-full w-8 h-8 flex items-center justify-center transition">&times;</button>
+        </div>
+
+        <form action="/property/<%= property.id %>/message" method="POST" class="space-y-4">
+            <div>
+                <textarea name="message" rows="4" placeholder="Type your initial inquiry here..." required class="w-full border border-gray-300 rounded-xl p-3 text-xs focus:outline-none focus:border-rose-500"></textarea>
+            </div>
+            <div class="flex justify-end gap-2">
+                <button type="button" onclick="closeMessageModal()" class="px-4 py-2 rounded-xl text-xs font-semibold border border-gray-300 text-gray-700 hover:bg-gray-50 transition">Cancel</button>
+                <button type="submit" class="px-5 py-2 rounded-xl text-xs font-semibold bg-rose-500 hover:bg-rose-600 text-white transition">Send Message</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Image Lightbox Modal Viewer -->
+<div id="lightboxModal" onclick="closeLightbox()" class="fixed inset-0 bg-black/95 hidden z-50 flex items-center justify-center p-4">
+    <button onclick="closeLightbox()" class="absolute top-6 right-6 text-white text-2xl font-bold bg-white/10 hover:bg-white/20 w-12 h-12 rounded-full flex items-center justify-center transition z-50">
+        <span class="leading-none pb-1">&times;</span>
+    </button>
+
+    <button onclick="event.stopPropagation(); changeLightboxSlide(-1)" class="absolute left-6 text-white text-3xl font-bold bg-white/10 hover:bg-white/20 w-14 h-14 rounded-full flex items-center justify-center transition z-50">
+        <span class="leading-none pr-0.5 pb-1">&#8249;</span>
+    </button>
+
+    <div onclick="event.stopPropagation()" class="flex flex-col items-center justify-center max-w-5xl max-h-[90vh]">
+        <img id="lightboxImg" class="max-h-[80vh] object-contain rounded-xl shadow-2xl" src="" alt="Gallery Image">
+        <span id="lightboxCounter" class="text-white text-xs font-semibold mt-3 bg-white/10 px-3 py-1 rounded-full">1 / 1</span>
+    </div>
+
+    <button onclick="event.stopPropagation(); changeLightboxSlide(1)" class="absolute right-6 text-white text-3xl font-bold bg-white/10 hover:bg-white/20 w-14 h-14 rounded-full flex items-center justify-center transition z-50">
+        <span class="leading-none pl-0.5 pb-1">&#8250;</span>
+    </button>
+</div>
+
+<!-- Raw Data Pass from EJS to Client Script -->
+<script>
+    const unavailableDatesArray = <%- JSON.stringify(property.unavailableDates || []) %>;
+    const propertyImagesArray = <%- JSON.stringify(allImgs) %>;
+    const propertyId = '<%= property.id %>';
+    let currentLightboxIdx = 0;
+</script>
+
+<script>
+    function openLightbox(index) {
+        currentLightboxIdx = index;
+        updateLightboxImage();
+        document.getElementById('lightboxModal').classList.remove('hidden');
+    }
+
+    function closeLightbox() {
+        document.getElementById('lightboxModal').classList.add('hidden');
+    }
+
+    function changeLightboxSlide(dir) {
+        currentLightboxIdx += dir;
+        if (currentLightboxIdx >= propertyImagesArray.length) {
+            currentLightboxIdx = 0;
+        } else if (currentLightboxIdx < 0) {
+            currentLightboxIdx = propertyImagesArray.length - 1;
+        }
+        updateLightboxImage();
+    }
+
+    function updateLightboxImage() {
+        const imgPath = `/uploads/${propertyImagesArray[currentLightboxIdx]}`;
+        document.getElementById('lightboxImg').src = imgPath;
+        document.getElementById('lightboxCounter').textContent = `${currentLightboxIdx + 1} / ${propertyImagesArray.length}`;
+    }
+
+    document.addEventListener('keydown', (e) => {
+        const modal = document.getElementById('lightboxModal');
+        if (!modal.classList.contains('hidden')) {
+            if (e.key === 'ArrowRight') {
+                changeLightboxSlide(1);
+            } else if (e.key === 'ArrowLeft') {
+                changeLightboxSlide(-1);
+            } else if (e.key === 'Escape') {
+                closeLightbox();
+            }
+        }
+    });
+
+    function openMessageModal() {
+        document.getElementById('messageModal').classList.remove('hidden');
+    }
+    function closeMessageModal() {
+        document.getElementById('messageModal').classList.add('hidden');
+    }
+
+    // Availability Calendar State (Restricted from going into past months)
+    const nowReal = new Date();
+    const realYear = nowReal.getFullYear();
+    const realMonth = nowReal.getMonth();
+
+    let pYear = realYear;
+    let pMonth = realMonth;
+    const blockedSet = new Set(unavailableDatesArray);
+
+    function navigatePropertyMonth(dir) {
+        const targetMonth = pMonth + dir;
+        const targetYear = pYear + (targetMonth > 11 ? 1 : targetMonth < 0 ? -1 : 0);
+        const normalizedMonth = (targetMonth + 12) % 12;
+
+        // Prevent moving to months prior to current real month/year
+        if (targetYear < realYear || (targetYear === realYear && normalizedMonth < realMonth)) {
+            return;
+        }
+
+        pMonth = normalizedMonth;
+        pYear = targetYear;
+        renderPropertyCalendar();
+    }
+
+    function renderPropertyCalendar() {
+        const grid = document.getElementById('propCalendarGrid');
+        const label = document.getElementById('propMonthYearLabel');
+        const prevBtn = document.getElementById('prevMonthBtn');
+        if (!grid || !label) return;
+        grid.innerHTML = '';
+
+        // Disable previous button if at current real month/year
+        if (prevBtn) {
+            if (pYear === realYear && pMonth === realMonth) {
+                prevBtn.disabled = true;
+            } else {
+                prevBtn.disabled = false;
+            }
+        }
+
+        const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+        label.textContent = `${monthNames[pMonth]} ${pYear}`;
+
+        const firstDay = new Date(pYear, pMonth, 1).getDay();
+        const daysInMonth = new Date(pYear, pMonth + 1, 0).getDate();
+
+        for (let i = 0; i < firstDay; i++) {
+            grid.appendChild(document.createElement('div'));
+        }
+
+        for (let day = 1; day <= daysInMonth; day++) {
+            const mStr = String(pMonth + 1).padStart(2, '0');
+            const dStr = String(day).padStart(2, '0');
+            const dateString = `${pYear}-${mStr}-${dStr}`;
+
+            const cell = document.createElement('div');
+            cell.textContent = day;
+            cell.className = "h-8 w-8 mx-auto flex items-center justify-center rounded-full text-xs font-semibold ";
+
+            const todayStr = `${realYear}-${String(realMonth + 1).padStart(2, '0')}-${String(nowReal.getDate()).padStart(2, '0')}`;
+
+            if (blockedSet.has(dateString)) {
+                cell.className += "bg-black text-white shadow-sm line-through opacity-90";
+                cell.title = "Unavailable";
+            } else if (dateString < todayStr) {
+                cell.className += "bg-gray-100 text-gray-300 line-through cursor-not-allowed";
+            } else {
+                cell.className += "text-gray-700 bg-gray-50";
+            }
+            grid.appendChild(cell);
+        }
+    }
+    renderPropertyCalendar();
+
+    // Reservation Modal Calendar State (Restricted from going into past months)
+    let resModalYear = realYear;
+    let resModalMonth = realMonth;
+    let selectedCheckIn = null;
+    let selectedCheckOut = null;
+
+    function openReservationCalendarModal() {
+        selectedCheckIn = null;
+        selectedCheckOut = null;
+        document.getElementById('checkInInput').value = '';
+        document.getElementById('checkOutInput').value = '';
+        document.getElementById('submitResBtn').disabled = true;
+        document.getElementById('reservationDatesInstruction').textContent = 'Click check-in date';
+        
+        resModalYear = realYear;
+        resModalMonth = realMonth;
+
+        renderResModalCalendar();
+        document.getElementById('reservationCalendarModal').classList.remove('hidden');
+    }
+
+    function closeReservationCalendarModal() {
+        document.getElementById('reservationCalendarModal').classList.add('hidden');
+    }
+
+    function navigateResModalMonth(dir) {
+        const targetMonth = resModalMonth + dir;
+        const targetYear = resModalYear + (targetMonth > 11 ? 1 : targetMonth < 0 ? -1 : 0);
+        const normalizedMonth = (targetMonth + 12) % 12;
+
+        if (targetYear < realYear || (targetYear === realYear && normalizedMonth < realMonth)) {
+            return;
+        }
+
+        resModalMonth = normalizedMonth;
+        resModalYear = targetYear;
+        renderResModalCalendar();
+    }
+
+    function clearSelectedDates() {
+        selectedCheckIn = null;
+        selectedCheckOut = null;
+        document.getElementById('checkInInput').value = '';
+        document.getElementById('checkOutInput').value = '';
+        document.getElementById('submitResBtn').disabled = true;
+        document.getElementById('reservationDatesInstruction').textContent = 'Click check-in date';
+        renderResModalCalendar();
+    }
+
+    function renderResModalCalendar() {
+        const grid = document.getElementById('resModalCalendarGrid');
+        const label = document.getElementById('resModalMonthYearLabel');
+        const resPrevBtn = document.getElementById('resPrevMonthBtn');
+        if (!grid || !label) return;
+        grid.innerHTML = '';
+
+        if (resPrevBtn) {
+            if (resModalYear === realYear && resModalMonth === realMonth) {
+                resPrevBtn.disabled = true;
+            } else {
+                resPrevBtn.disabled = false;
+            }
+        }
+
+        const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+        label.textContent = `${monthNames[resModalMonth]} ${resModalYear}`;
+
+        const firstDay = new Date(resModalYear, resModalMonth, 1).getDay();
+        const daysInMonth = new Date(resModalYear, resModalMonth + 1, 0).getDate();
+
+        for (let i = 0; i < firstDay; i++) {
+            grid.appendChild(document.createElement('div'));
+        }
+
+        const todayStr = `${realYear}-${String(realMonth + 1).padStart(2, '0')}-${String(nowReal.getDate()).padStart(2, '0')}`;
+
+        for (let day = 1; day <= daysInMonth; day++) {
+            const mStr = String(resModalMonth + 1).padStart(2, '0');
+            const dStr = String(day).padStart(2, '0');
+            const dateString = `${resModalYear}-${mStr}-${dStr}`;
+
+            const isPast = dateString < todayStr;
+            const isBlocked = blockedSet.has(dateString) || isPast;
+            const isStart = selectedCheckIn === dateString;
+            const isEnd = selectedCheckOut === dateString;
+            let isInRange = false;
+
+            if (selectedCheckIn && selectedCheckOut) {
+                isInRange = dateString > selectedCheckIn && dateString < selectedCheckOut;
+            }
+
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.textContent = day;
+            btn.className = "h-9 w-9 mx-auto flex items-center justify-center rounded-full text-xs font-semibold transition ";
+
+            if (isBlocked) {
+                btn.className += "bg-gray-100 text-gray-300 line-through cursor-not-allowed";
+                btn.disabled = true;
+            } else if (isStart || isEnd) {
+                btn.className += "bg-rose-600 text-white shadow-md font-bold";
+            } else if (isInRange) {
+                btn.className += "bg-rose-100 text-rose-800 rounded-none";
+            } else {
+                btn.className += "text-gray-700 hover:bg-gray-100";
+            }
+
+            btn.onclick = () => {
+                if (!selectedCheckIn || (selectedCheckIn && selectedCheckOut)) {
+                    selectedCheckIn = dateString;
+                    selectedCheckOut = null;
+                    document.getElementById('checkInInput').value = dateString;
+                    document.getElementById('checkOutInput').value = '';
+                    document.getElementById('submitResBtn').disabled = true;
+                    document.getElementById('reservationDatesInstruction').textContent = 'Click check-out date';
+                } else if (selectedCheckIn && !selectedCheckOut) {
+                    if (dateString <= selectedCheckIn) {
+                        selectedCheckIn = dateString;
+                        document.getElementById('checkInInput').value = dateString;
+                    } else {
+                        let startD = new Date(selectedCheckIn);
+                        let endD = new Date(dateString);
+                        let hasConflict = false;
+                        let curr = new Date(startD);
+                        curr.setDate(curr.getDate() + 1);
+                        while (curr < endD) {
+                            let currStr = curr.toISOString().split('T')[0];
+                            if (blockedSet.has(currStr) || currStr < todayStr) {
+                                hasConflict = true;
+                                break;
+                            }
+                            curr.setDate(curr.getDate() + 1);
+                        }
+
+                        if (hasConflict) {
+                            alert('Selected range includes unavailable or past dates. Please choose different dates.');
+                            clearSelectedDates();
+                            return;
+                        }
+
+                        selectedCheckOut = dateString;
+                        document.getElementById('checkOutInput').value = dateString;
+                        document.getElementById('submitResBtn').disabled = false;
+                        document.getElementById('reservationDatesInstruction').textContent = `Selected: ${selectedCheckIn} to ${selectedCheckOut}`;
+                    }
+                }
+                renderResModalCalendar();
+            };
+
+            grid.appendChild(btn);
+        }
+    }
+</script>
 <%- include('partials/footer') %>
