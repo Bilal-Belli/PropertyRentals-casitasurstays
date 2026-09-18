@@ -25,7 +25,16 @@ const storage = multer.diskStorage({
         cb(null, Date.now() + '-' + file.originalname);
     }
 });
-const upload = multer({ storage: storage });
+
+const upload = multer({
+    storage: storage,
+    limits: { fileSize: 500 * 1024 * 1024 } // Allow larger size for videos (up to 500MB)
+});
+
+const propertyUploads = upload.fields([
+    { name: 'images', maxCount: 10 },
+    { name: 'promoVideo', maxCount: 1 }
+]);
 
 // Helper functions for JSON database
 const readJSON = (filename) => {
@@ -40,9 +49,6 @@ const writeJSON = (filename, data) => {
     fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
 };
 
-// Simple Cookie/Session simulation via query/in-memory or simplified header mock
-// For a fully working basic app without complex session packages, we will store simulated user state via simple memory or client requests. Let's use simple in-memory session tracking by IP/token or store user info in request locals.
-// To keep it dead-simple and standard for basic template apps:
 let currentUser = null; // Simulated logged-in user session
 
 app.use((req, res, next) => {
@@ -94,16 +100,47 @@ app.post('/login', (req, res) => {
 
 app.get('/register', (req, res) => res.render('register', { error: null }));
 app.post('/register', (req, res) => {
-    const { name, email, password } = req.body;
+    const { firstName, lastName, phone, email, password } = req.body;
     const users = readJSON('users.json');
     if (users.some(u => u.email === email)) {
         return res.render('register', { error: 'Email already exists' });
     }
-    const newUser = { id: Date.now().toString(), name, email, password, role: 'user' };
+    const fullName = `${firstName.trim()} ${lastName.trim()}`;
+    const newUser = { 
+        id: Date.now().toString(), 
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        name: fullName, 
+        phone: phone.trim(),
+        email, 
+        password, 
+        role: 'user' 
+    };
     users.push(newUser);
     writeJSON('users.json', users);
     currentUser = newUser;
     res.redirect('/user/dashboard');
+});
+
+// Admin reply to a user message thread
+app.post('/admin/message/reply', (req, res) => {
+    if (!currentUser || currentUser.role !== 'admin') return res.status(403).json({ error: 'Unauthorized' });
+    const { conversationId, message } = req.body;
+    if (!message || !conversationId) return res.status(400).json({ error: 'Missing data' });
+
+    const conversations = readJSON('messages.json');
+    const convo = conversations.find(c => c.conversationId === conversationId);
+    if (!convo) return res.status(404).json({ error: 'Conversation not found' });
+
+    const newMsg = {
+        id: Date.now().toString(),
+        sender: 'admin',
+        message,
+        date: new Date().toISOString()
+    };
+    convo.messages.push(newMsg);
+    writeJSON('messages.json', conversations);
+    res.json({ success: true, message: newMsg });
 });
 
 app.get('/logout', (req, res) => {
@@ -116,24 +153,64 @@ app.get('/user/dashboard', (req, res) => {
     if (!currentUser || currentUser.role !== 'user') return res.redirect('/login');
     const reservations = readJSON('reservations.json').filter(r => r.userId === currentUser.id);
     const properties = readJSON('properties.json');
-    res.render('user-dashboard', { reservations, properties });
+    const messages = readJSON('messages.json').filter(c => c.userId === currentUser.id);
+    
+    res.render('user-dashboard', { reservations, properties, messages });
+});
+
+app.post('/user/message/reply', (req, res) => {
+    if (!currentUser || currentUser.role !== 'user') return res.status(403).json({ error: 'Unauthorized' });
+    const { conversationId, message } = req.body;
+    if (!message || !conversationId) return res.status(400).json({ error: 'Missing data' });
+
+    const conversations = readJSON('messages.json');
+    const convo = conversations.find(c => c.conversationId === conversationId);
+    if (!convo) return res.status(404).json({ error: 'Conversation not found' });
+
+    const newMsg = {
+        id: Date.now().toString(),
+        sender: 'user',
+        message,
+        date: new Date().toISOString()
+    };
+    convo.messages.push(newMsg);
+    writeJSON('messages.json', conversations);
+    res.json({ success: true, message: newMsg });
 });
 
 // Send message to property host
 app.post('/property/:id/message', (req, res) => {
     if (!currentUser) return res.redirect('/login');
     const { message } = req.body;
-    const messages = readJSON('messages.json');
-    messages.push({
+    const propertyId = req.params.id;
+    const userId = currentUser.id;
+    const userName = currentUser.name;
+    const conversationId = `${userId}_${propertyId}`;
+
+    const conversations = readJSON('messages.json');
+    let convo = conversations.find(c => c.conversationId === conversationId);
+
+    const newMsg = {
         id: Date.now().toString(),
-        propertyId: req.params.id,
-        userId: currentUser.id,
-        userName: currentUser.name,
+        sender: 'user',
         message,
         date: new Date().toISOString()
-    });
-    writeJSON('messages.json', messages);
-    res.redirect(`/property/${req.params.id}?msg=sent`);
+    };
+
+    if (convo) {
+        convo.messages.push(newMsg);
+    } else {
+        conversations.push({
+            conversationId,
+            userId,
+            userName,
+            propertyId,
+            messages: [newMsg]
+        });
+    }
+
+    writeJSON('messages.json', conversations);
+    res.redirect(`/property/${propertyId}?msg=sent`);
 });
 
 // Request reservation
@@ -155,72 +232,317 @@ app.post('/property/:id/reserve', (req, res) => {
 });
 
 // ==================== ADMIN PORTAL ====================
+// ==================== ADMIN PORTAL ====================
 app.get('/admin', (req, res) => {
     if (!currentUser || currentUser.role !== 'admin') return res.redirect('/login');
     const properties = readJSON('properties.json');
     const reservations = readJSON('reservations.json');
-    const messages = readJSON('messages.json');
-    const users = readJSON('users.json').filter(u => u.role === 'user');
-    res.render('admin-dashboard', { properties, reservations, messages, users });
+    const messages = readJSON('messages.json'); // Array of conversation objects
+    
+    const users = readJSON('users.json')
+        .filter(u => u.role === 'user')
+        .map(u => {
+            const userReservations = reservations.filter(r => r.userId === u.id);
+            const userConversations = messages.filter(c => c.userId === u.id);
+
+            let fName = u.firstName;
+            let lName = u.lastName;
+            if (!fName && !lName && u.name) {
+                const parts = u.name.trim().split(' ');
+                fName = parts[0] || '';
+                lName = parts.slice(1).join(' ') || '';
+            }
+
+            return {
+                ...u,
+                firstName: fName || 'N/A',
+                lastName: lName || '',
+                phone: u.phone || 'N/A',
+                reservationsCount: userReservations.length,
+                conversationsCount: userConversations.length
+            };
+        });
+
+    res.render('admin/admin-dashboard', { properties, reservations, messages, users });
 });
 
-// Add Property Form
+// Update Reservation Status (Single switch)
+app.post('/admin/reservation/:id/status', (req, res) => {
+    if (!currentUser || currentUser.role !== 'admin') return res.status(403).json({ error: 'Unauthorized' });
+    const { status } = req.body;
+    
+    const reservations = readJSON('reservations.json');
+    const resv = reservations.find(r => r.id === req.params.id);
+    if (!resv) return res.json({ success: false, error: 'Reservation not found' });
+
+    const oldStatus = resv.status;
+    resv.status = status;
+    writeJSON('reservations.json', reservations);
+
+    // If status changed to 'Accepted', automatically make dates unavailable in the property calendar
+    if (status === 'Accepted' && oldStatus !== 'Accepted') {
+        const properties = readJSON('properties.json');
+        const property = properties.find(p => p.id === resv.propertyId);
+        
+        if (property) {
+            if (!property.unavailableDates) {
+                property.unavailableDates = [];
+            }
+
+            // Calculate all dates in the range from checkIn to checkOut
+            let curr = new Date(resv.checkIn);
+            const endD = new Date(resv.checkOut);
+
+            while (curr <= endD) {
+                const dateStr = curr.toISOString().split('T')[0];
+                if (!property.unavailableDates.includes(dateStr)) {
+                    property.unavailableDates.push(dateStr);
+                }
+                curr.setDate(curr.getDate() + 1);
+            }
+
+            // Sort dates chronologically
+            property.unavailableDates.sort();
+            writeJSON('properties.json', properties);
+        }
+    }
+
+    res.json({ success: true });
+});
+
+// Real-time Save Admin Note for Reservation
+app.post('/admin/reservation/:id/note', (req, res) => {
+    if (!currentUser || currentUser.role !== 'admin') return res.status(403).json({ error: 'Unauthorized' });
+    const { note } = req.body;
+    const reservations = readJSON('reservations.json');
+    const resv = reservations.find(r => r.id === req.params.id);
+    if (resv) {
+        resv.note = note || '';
+        writeJSON('reservations.json', reservations);
+    }
+    res.json({ success: true });
+});
+
+// Delete Reservation
+app.post('/admin/reservation/:id/delete', (req, res) => {
+    if (!currentUser || currentUser.role !== 'admin') return res.redirect('/login');
+    let reservations = readJSON('reservations.json');
+    reservations = reservations.filter(r => r.id !== req.params.id);
+    writeJSON('reservations.json', reservations);
+    res.redirect('/admin');
+});
+
+// Delete Property Route (Removes from JSON & unlinks images/videos from disk)
+app.post('/admin/property/delete/:id', (req, res) => {
+    if (!currentUser || currentUser.role !== 'admin') return res.redirect('/login');
+    let properties = readJSON('properties.json');
+    const index = properties.findIndex(p => p.id === req.params.id);
+    
+    if (index !== -1) {
+        const prop = properties[index];
+
+        // Delete images from disk
+        if (prop.images && Array.isArray(prop.images)) {
+            prop.images.forEach(img => {
+                const imgPath = path.join(__dirname, 'public/uploads', img);
+                if (fs.existsSync(imgPath)) {
+                    try { fs.unlinkSync(imgPath); } catch (err) { console.error(err); }
+                }
+            });
+        }
+        // Also check legacy single image field just in case
+        if (prop.image && prop.image !== 'default-chalet.jpg') {
+            const singleImgPath = path.join(__dirname, 'public/uploads', prop.image);
+            if (fs.existsSync(singleImgPath)) {
+                try { fs.unlinkSync(singleImgPath); } catch (err) { console.error(err); }
+            }
+        }
+
+        // Delete promo video from disk if it exists
+        if (prop.promoVideo) {
+            const videoPath = path.join(__dirname, 'public/uploads', prop.promoVideo);
+            if (fs.existsSync(videoPath)) {
+                try { fs.unlinkSync(videoPath); } catch (err) { console.error(err); }
+            }
+        }
+
+        // Remove from array and write back to JSON
+        properties.splice(index, 1);
+        writeJSON('properties.json', properties);
+    }
+    res.redirect('/admin');
+});
+
+// Delete User Route
+app.post('/admin/user/:id/delete', (req, res) => {
+    if (!currentUser || currentUser.role !== 'admin') return res.redirect('/login');
+    let users = readJSON('users.json');
+    users = users.filter(u => u.id !== req.params.id);
+    writeJSON('users.json', users);
+    res.redirect('/admin');
+});
+
+// Add Property Form (GET)
 app.get('/admin/property/add', (req, res) => {
     if (!currentUser || currentUser.role !== 'admin') return res.redirect('/login');
-    res.render('admin-add-property', { property: null });
+    res.render('admin/admin-add-property', { property: null });
 });
 
-// Save New Property
-app.post('/admin/property/add', upload.single('image'), (req, res) => {
+// Save New Property (POST)
+app.post('/admin/property/add', propertyUploads, (req, res) => {
     if (!currentUser || currentUser.role !== 'admin') return res.redirect('/login');
-    const { title, location, price, description } = req.body;
+    const { 
+        title, location, price, description, propertyType, guestsCapacity, 
+        sleepingArrangements, bathrooms, squareFeet, exactAddress, 
+        houseRules, devices, bookingRules, comingLeavingRules, otherDetails 
+    } = req.body;
+
     const properties = readJSON('properties.json');
+    
+    const images = req.files['images'] ? req.files['images'].map(file => file.filename) : [];
+    const promoVideo = req.files['promoVideo'] ? req.files['promoVideo'][0].filename : null;
+
     const newProperty = {
         id: Date.now().toString(),
         title,
         location,
         price: Number(price),
         description,
-        image: req.file ? req.file.filename : 'default-chalet.jpg',
+        propertyType,
+        guestsCapacity: Number(guestsCapacity),
+        sleepingArrangements,
+        bathrooms: Number(bathrooms),
+        squareFeet: Number(squareFeet),
+        exactAddress,
+        houseRules,
+        devices,
+        bookingRules,
+        comingLeavingRules,
+        otherDetails,
+        images,
+        image: images.length > 0 ? images[0] : 'default-chalet.jpg',
+        promoVideo,
         unavailableDates: []
     };
+
     properties.push(newProperty);
     writeJSON('properties.json', properties);
     res.redirect('/admin');
 });
 
-// Edit Property Form
+// Edit Property Form (GET) - FIXED: This route was missing!
 app.get('/admin/property/edit/:id', (req, res) => {
     if (!currentUser || currentUser.role !== 'admin') return res.redirect('/login');
     const properties = readJSON('properties.json');
     const property = properties.find(p => p.id === req.params.id);
     if (!property) return res.status(404).send('Property not found');
-    res.render('admin-add-property', { property });
+    res.render('admin/admin-add-property', { property });
 });
 
-// Update Property
-app.post('/admin/property/edit/:id', upload.single('image'), (req, res) => {
+// Update Property (POST)
+app.post('/admin/property/edit/:id', propertyUploads, (req, res) => {
     if (!currentUser || currentUser.role !== 'admin') return res.redirect('/login');
     const properties = readJSON('properties.json');
     const index = properties.findIndex(p => p.id === req.params.id);
     if (index === -1) return res.status(404).send('Property not found');
 
-    const { title, location, price, description } = req.body;
-    properties[index].title = title;
-    properties[index].location = location;
-    properties[index].price = Number(price);
-    properties[index].description = description;
-    if (req.file) {
-        properties[index].image = req.file.filename;
+    const { 
+        title, location, price, description, propertyType, guestsCapacity, 
+        sleepingArrangements, bathrooms, squareFeet, exactAddress, 
+        houseRules, devices, bookingRules, comingLeavingRules, otherDetails,
+        existingImagesOrder, deletePromoVideo 
+    } = req.body;
+
+    const prop = properties[index];
+
+    prop.title = title;
+    prop.location = location;
+    prop.price = Number(price);
+    prop.description = description;
+    prop.propertyType = propertyType;
+    prop.guestsCapacity = Number(guestsCapacity);
+    prop.sleepingArrangements = sleepingArrangements;
+    prop.bathrooms = Number(bathrooms);
+    prop.squareFeet = Number(squareFeet);
+    prop.exactAddress = exactAddress;
+    prop.houseRules = houseRules;
+    prop.devices = devices;
+    prop.bookingRules = bookingRules;
+    prop.comingLeavingRules = comingLeavingRules;
+    prop.otherDetails = otherDetails;
+
+    // Process retained images and delete unreferenced ones from disk
+    let retainedImages = [];
+    if (existingImagesOrder) {
+        try {
+            retainedImages = JSON.parse(existingImagesOrder);
+        } catch (e) {
+            retainedImages = prop.images || [];
+        }
     }
+
+    if (prop.images && Array.isArray(prop.images)) {
+        prop.images.forEach(oldImg => {
+            if (!retainedImages.includes(oldImg)) {
+                const imgPath = path.join(__dirname, 'public/uploads', oldImg);
+                if (fs.existsSync(imgPath)) {
+                    try { fs.unlinkSync(imgPath); } catch (err) { console.error(err); }
+                }
+            }
+        });
+    }
+
+    let newImages = [];
+    if (req.files && req.files['images'] && req.files['images'].length > 0) {
+        newImages = req.files['images'].map(file => file.filename);
+    }
+
+    prop.images = [...retainedImages, ...newImages];
+    prop.image = prop.images.length > 0 ? prop.images[0] : 'default-chalet.jpg';
+
+    // Handle Promo Video deletion or replacement from disk & JSON
+    if (deletePromoVideo === '1' || deletePromoVideo === 'true') {
+        if (prop.promoVideo) {
+            const videoPath = path.join(__dirname, 'public/uploads', prop.promoVideo);
+            if (fs.existsSync(videoPath)) {
+                try { fs.unlinkSync(videoPath); } catch (err) { console.error(err); }
+            }
+        }
+        prop.promoVideo = null;
+    }
+
+    if (req.files && req.files['promoVideo'] && req.files['promoVideo'].length > 0) {
+        if (prop.promoVideo) {
+            const oldVideoPath = path.join(__dirname, 'public/uploads', prop.promoVideo);
+            if (fs.existsSync(oldVideoPath)) {
+                try { fs.unlinkSync(oldVideoPath); } catch (err) { console.error(err); }
+            }
+        }
+        prop.promoVideo = req.files['promoVideo'][0].filename;
+    }
+
+    properties[index] = prop;
     writeJSON('properties.json', properties);
     res.redirect('/admin');
+});
+
+// Real-time Property Reordering Route
+app.post('/admin/properties/reorder', (req, res) => {
+    if (!currentUser || currentUser.role !== 'admin') return res.status(403).json({ error: 'Unauthorized' });
+    const { order } = req.body; // Array of property IDs in new order
+    if (!Array.isArray(order)) return res.status(400).json({ error: 'Invalid data' });
+
+    const properties = readJSON('properties.json');
+    // Sort properties array according to the new order array
+    properties.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+    writeJSON('properties.json', properties);
+    res.json({ success: true });
 });
 
 // Edit Calendar / Unavailable Dates
 app.post('/admin/property/calendar/:id', (req, res) => {
     if (!currentUser || currentUser.role !== 'admin') return res.redirect('/login');
-    const { unavailableDates } = req.body; // comma separated dates e.g. "2026-10-01, 2026-10-02"
+    const { unavailableDates } = req.body; 
     const properties = readJSON('properties.json');
     const property = properties.find(p => p.id === req.params.id);
     if (property) {
