@@ -1,71 +1,176 @@
-<% const msgs = (typeof messages !== 'undefined' && messages) ? messages : []; %>
-<div class="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden grid grid-cols-1 md:grid-cols-3 h-[600px]">
+<% const conversations = (typeof messages !== 'undefined' && messages) ? messages : []; %>
+<div class="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden grid grid-cols-1 md:grid-cols-3 h-[650px] relative">
+    
     <!-- Left Sidebar: Conversations List -->
-    <div class="border-r border-gray-200 bg-gray-50/50 flex flex-col">
-        <div class="p-4 border-b border-gray-200 font-bold text-sm text-gray-800 bg-white">Chats</div>
+    <div id="chatSidebar" class="border-r border-gray-200 bg-gray-50/50 flex flex-col h-full overflow-hidden bg-white z-10 w-full">
+        <div class="p-4 border-b border-gray-200 font-bold text-sm text-gray-800 bg-white flex-shrink-0 flex justify-between items-center">
+            <span>Chats</span>
+            <span class="text-xs text-gray-400 font-normal"><%= conversations.length %> total</span>
+        </div>
         <div id="conversationsList" class="overflow-y-auto flex-grow divide-y divide-gray-100">
-            <% if (msgs.length === 0) { %>
+            <% if (conversations.length === 0) { %>
                 <p class="p-4 text-gray-400 text-xs">No conversations yet.</p>
             <% } else { %>
                 <% 
-                    // Group messages by User + Property ID to make separate threads
-                    const threads = {};
-                    msgs.forEach(m => {
-                        const userName = m.userName || 'Guest User';
-                        const propId = m.propertyId || 'General';
-                        const threadKey = `${userName}___${propId}`; // Unique composite key
-                        
-                        if (!threads[threadKey]) {
-                            threads[threadKey] = {
-                                userName: userName,
-                                propertyId: propId,
-                                messages: []
-                            };
-                        }
-                        threads[threadKey].messages.push(m);
-                    });
-
-                    let isFirst = true;
-                    for (const [threadKey, threadObj] of Object.entries(threads)) {
-                        const userMsgs = threadObj.messages;
-                        const latestMsg = userMsgs[userMsgs.length - 1];
+                    conversations.forEach(convo => {
+                        const msgs = convo.messages || [];
+                        const latestMsg = msgs[msgs.length - 1] || {};
                 %>
-                    <div onclick="selectConversation('<%= threadObj.userName.replace(/'/g, "\\'") %>', '<%= threadObj.propertyId %>')" class="conversation-item p-4 hover:bg-gray-100 cursor-pointer transition flex items-center gap-3 <%= isFirst ? 'bg-rose-50/60 border-l-4 border-rose-500' : '' %>" data-thread="<%= threadKey %>">
+                    <div onclick="selectConversation('<%= convo.conversationId %>')" class="conversation-item p-4 hover:bg-gray-100 cursor-pointer transition flex items-center gap-3" data-conversation="<%= convo.conversationId %>">
                         <div class="w-10 h-10 rounded-full bg-rose-100 text-rose-600 font-bold flex items-center justify-center text-sm flex-shrink-0">
-                            <%= threadObj.userName.charAt(0).toUpperCase() %>
+                            <%= (convo.userName || 'G').charAt(0).toUpperCase() %>
                         </div>
                         <div class="overflow-hidden flex-grow">
                             <div class="flex justify-between items-center mb-1">
-                                <h4 class="font-bold text-xs text-gray-900 truncate"><%= threadObj.userName %></h4>
-                                <span class="text-[10px] text-gray-400"><%= new Date(latestMsg.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) %></span>
+                                <h4 class="font-bold text-xs text-gray-900 truncate"><%= convo.userName %></h4>
+                                <span class="text-[10px] text-gray-400"><%= latestMsg.date ? new Date(latestMsg.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '' %></span>
                             </div>
                             <div class="flex items-center gap-1 mb-1">
-                                <span class="text-[9px] bg-rose-50 text-rose-600 px-1.5 py-0.2 rounded font-semibold">Prop ID: <%= threadObj.propertyId %></span>
+                                <span class="text-[9px] bg-rose-50 text-rose-600 px-1.5 py-0.2 rounded font-semibold">Prop ID: <%= convo.propertyId %></span>
                             </div>
-                            <p class="text-xs text-gray-500 truncate"><%= latestMsg.message %></p>
+                            <p class="text-xs text-gray-500 truncate"><%= latestMsg.message || '' %></p>
                         </div>
                     </div>
                 <% 
-                        isFirst = false;
-                    } 
+                    }); 
                 %>
             <% } %>
         </div>
     </div>
 
-    <!-- Right Main Pane: Active Chat Discussion & Reply Input -->
-    <div class="md:col-span-2 flex flex-col bg-white">
-        <div id="activeChatHeader" class="p-4 border-b border-gray-200 bg-white font-bold text-sm text-gray-900 flex items-center justify-between">
-            <span>Select a conversation from the left sidebar</span>
+    <!-- Right Main Pane: Active Chat Discussion & Sticky Reply Input -->
+    <div id="chatMainPane" class="md:col-span-2 flex flex-col h-full bg-white absolute md:relative inset-0 z-20 bg-white transform translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out">
+        <!-- Chat Header -->
+        <div id="activeChatHeader" class="p-4 border-b border-gray-200 bg-white font-bold text-sm text-gray-900 flex items-center justify-between flex-shrink-0 z-10 shadow-sm">
+            <div class="flex items-center gap-2 overflow-hidden">
+                <button type="button" onclick="backToChatList()" class="md:hidden p-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-100 mr-1 flex-shrink-0">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                </button>
+                <span id="activeChatTitleText" class="truncate">Select a conversation</span>
+            </div>
         </div>
-        <!-- Chat Feed Scroll Area -->
-        <div id="activeChatFeed" class="flex-grow p-6 overflow-y-auto space-y-3 bg-gray-50/30 flex flex-col">
+
+        <!-- Scrollable Chat Feed Area with visible clean scrollbar -->
+        <div id="activeChatFeed" class="flex-grow p-4 sm:p-6 overflow-y-auto space-y-3 bg-gray-50/30 flex flex-col mb-16" style="scrollbar-width: thin; scrollbar-color: #cbd5e1 #f8fafc;">
             <div class="text-center text-gray-400 text-xs my-auto">Choose a chat to view and reply</div>
         </div>
-        <!-- Admin Reply Form -->
-        <form id="adminReplyForm" onsubmit="sendAdminReply(event)" class="p-3 bg-white border-t border-gray-200 flex gap-2 hidden">
+
+        <!-- Sticky Admin Reply Form at the Bottom -->
+        <form id="adminReplyForm" onsubmit="sendAdminReply(event)" class="absolute bottom-0 left-0 right-0 p-3 bg-white border-t border-gray-200 flex gap-2 hidden z-30 shadow-md">
             <input type="text" id="adminReplyInput" placeholder="Type your reply as admin..." required class="flex-grow border border-gray-300 rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:border-rose-500">
-            <button type="submit" class="bg-rose-500 hover:bg-rose-600 text-white px-5 py-2.5 rounded-xl text-xs font-semibold transition">Send Reply</button>
+            <button type="submit" class="bg-rose-500 hover:bg-rose-600 text-white px-4 sm:px-5 py-2.5 rounded-xl text-xs font-semibold transition flex-shrink-0">Send</button>
         </form>
     </div>
 </div>
+
+<script>
+    let allConversationsData = <%- JSON.stringify((typeof messages !== 'undefined' && messages) ? messages : []) %>;
+    let activeConversationId = localStorage.getItem('adminActiveConvoId') || null;
+
+    function selectConversation(conversationId) {
+        activeConversationId = conversationId;
+        localStorage.setItem('adminActiveConvoId', conversationId);
+
+        document.querySelectorAll('.conversation-item').forEach(el => {
+            el.classList.remove('bg-rose-50/60', 'border-l-4', 'border-rose-500');
+            if (el.getAttribute('data-conversation') === conversationId) {
+                el.classList.add('bg-rose-50/60', 'border-l-4', 'border-rose-500');
+            }
+        });
+
+        const convo = allConversationsData.find(c => c.conversationId === conversationId);
+        if (!convo) return;
+
+        const titleTextEl = document.getElementById('activeChatTitleText');
+        const feedEl = document.getElementById('activeChatFeed');
+        const replyFormEl = document.getElementById('adminReplyForm');
+
+        titleTextEl.innerHTML = `Chat with ${convo.userName} <span class="text-[11px] font-normal text-gray-500 hidden sm:inline">(Property ID: ${convo.propertyId})</span>`;
+        replyFormEl.classList.remove('hidden');
+        feedEl.innerHTML = '';
+
+        // Slide into active chat pane on mobile view
+        document.getElementById('chatMainPane').classList.remove('translate-x-full');
+
+        if (!convo.messages || convo.messages.length === 0) {
+            feedEl.innerHTML = '<div class="text-center text-gray-400 text-xs my-auto">No messages in this chat.</div>';
+            return;
+        }
+
+        convo.messages.forEach(msg => {
+            appendMessageBubble(msg);
+        });
+        feedEl.scrollTop = feedEl.scrollHeight;
+    }
+
+    function backToChatList() {
+        document.getElementById('chatMainPane').classList.add('translate-x-full');
+    }
+
+    function appendMessageBubble(msg) {
+        const feedEl = document.getElementById('activeChatFeed');
+        const isAdmin = msg.sender === 'admin';
+
+        const wrapper = document.createElement('div');
+        wrapper.className = `flex flex-col ${isAdmin ? 'items-end' : 'items-start'} mb-3`;
+        wrapper.innerHTML = `
+            <div class="flex items-center gap-2 px-1 mb-1">
+                <span class="text-[9px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full font-semibold">${isAdmin ? 'Admin' : 'User'}</span>
+            </div>
+            <div class="max-w-[85%] sm:max-w-[75%] rounded-2xl px-4 py-3 text-sm shadow-sm leading-relaxed ${isAdmin ? 'bg-rose-500 text-white rounded-br-none' : 'bg-gray-100 text-gray-800 rounded-bl-none'}">
+                ${escapeHtml(msg.message)}
+            </div>
+            <span class="text-[9px] text-gray-400 px-1 mt-1">${new Date(msg.date).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</span>
+        `;
+        feedEl.appendChild(wrapper);
+        feedEl.scrollTop = feedEl.scrollHeight;
+    }
+
+    function sendAdminReply(e) {
+        e.preventDefault();
+        const input = document.getElementById('adminReplyInput');
+        const text = input.value.trim();
+        if (!text || !activeConversationId) return;
+
+        fetch('/admin/message/reply', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ conversationId: activeConversationId, message: text })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                const convo = allConversationsData.find(c => c.conversationId === activeConversationId);
+                if (convo) {
+                    if (!convo.messages) convo.messages = [];
+                    convo.messages.push(data.message);
+                }
+                appendMessageBubble(data.message);
+                input.value = '';
+            }
+        })
+        .catch(err => console.error('Error sending reply:', err));
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    // Restore active conversation state on load
+    document.addEventListener("DOMContentLoaded", () => {
+        if (window.innerWidth >= 768 && activeConversationId) {
+            const targetChat = document.querySelector(`[data-conversation="${activeConversationId}"]`);
+            if (targetChat) {
+                selectConversation(activeConversationId);
+                return;
+            }
+        }
+        if (window.innerWidth >= 768) {
+            const firstChat = document.querySelector('.conversation-item');
+            if (firstChat) {
+                selectConversation(firstChat.getAttribute('data-conversation'));
+            }
+        }
+    });
+</script>
