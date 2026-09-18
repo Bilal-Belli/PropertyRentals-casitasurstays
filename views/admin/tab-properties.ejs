@@ -1,0 +1,59 @@
+<div class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm w-full">
+    <!-- Search Bar Header -->
+    <div class="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+        <div>
+            <h3 class="font-bold text-base text-gray-900">Properties Management</h3>
+            <p class="text-xs text-gray-500">Search listings, manage calendars, edit info, or delete properties.</p>
+        </div>
+        <div class="w-full sm:w-72">
+            <input type="text" id="propertySearchInput" oninput="filterProperties()" placeholder="Search by title or location..." class="w-full border border-gray-300 rounded-xl px-4 py-2 text-xs focus:outline-none focus:border-rose-500">
+        </div>
+    </div>
+
+    <!-- Properties List Container -->
+    <div id="properties-list" class="space-y-3">
+        <% if (properties.length === 0) { %>
+            <div class="text-center text-gray-400 text-xs py-8">No properties added yet.</div>
+        <% } else { %>
+            <% properties.forEach(prop => { %>
+                <div draggable="true" data-id="<%= prop.id %>" data-title="<%= (prop.title || '').toLowerCase() %>" data-location="<%= (prop.location || '').toLowerCase() %>" class="property-row bg-white border border-gray-200 p-4 rounded-xl shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 cursor-grab active:cursor-grabbing hover:border-rose-300 transition">
+                    <div class="flex items-center gap-4 w-full sm:w-auto">
+                        <span class="text-gray-400 font-bold select-none">&#x2630;</span>
+                        <img src="/uploads/<%= prop.image %>" class="w-16 h-16 rounded-lg object-cover flex-shrink-0" onerror="this.src='https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=200'">
+                        <div>
+                            <h3 class="font-bold text-base text-gray-900"><%= prop.title %></h3>
+                            <p class="text-gray-500 text-xs"><%= prop.location %> &bull; $<%= prop.price %>/night</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
+                        <button type="button" onclick="openCalendarModal('<%= prop.id %>', <%= JSON.stringify(prop.title) %>, '<%= prop.unavailableDates ? prop.unavailableDates.join(',') : '' %>')" class="bg-gray-100 hover:bg-gray-200 text-gray-800 px-3 py-2 rounded-lg text-xs font-semibold transition flex items-center gap-1.5">
+                            Manage Calendar
+                        </button>
+                        <a href="/admin/property/edit/<%= prop.id %>" class="bg-rose-50 hover:bg-rose-100 text-rose-600 px-3 py-2 rounded-lg text-xs font-semibold transition">Edit Info</a>
+                        <form action="/admin/property/delete/<%= prop.id %>" method="POST" onsubmit="return confirm('Are you sure you want to delete this property? This will permanently delete all associated images and promo videos from the server disk.');" class="inline">
+                            <button type="submit" class="bg-red-50 hover:bg-red-100 text-red-600 px-3 py-2 rounded-lg text-xs font-semibold transition">Delete</button>
+                        </form>
+                    </div>
+                </div>
+            <% }) %>
+        <% } %>
+    </div>
+    <div id="reorder-status" class="text-xs text-green-600 font-medium mt-2 h-4"></div>
+</div>
+
+<script>
+    function filterProperties() {
+        const query = document.getElementById('propertySearchInput').value.toLowerCase().trim();
+        const rows = document.querySelectorAll('.property-row');
+
+        rows.forEach(row => {
+            const title = row.getAttribute('data-title') || '';
+            const location = row.getAttribute('data-location') || '';
+            if (title.includes(query) || location.includes(query)) {
+                row.style.display = 'flex';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    }
+</script>

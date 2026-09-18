@@ -1,0 +1,366 @@
+<%- include('../partials/header') %>
+<div class="max-w-7xl mx-auto px-4 py-8">
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+        <h1 class="text-2xl font-bold">Admin Portal</h1>
+        <a href="/admin/property/add" class="bg-rose-500 hover:bg-rose-600 text-white px-4 py-2 rounded-lg text-sm font-semibold transition">Add New Property</a>
+    </div>
+
+    <!-- Tab Navigation Buttons -->
+    <div class="flex flex-wrap gap-2 border-b border-gray-200 mb-6">
+        <button onclick="switchTab(event, 'properties')" class="tab-btn px-4 py-2.5 text-sm font-semibold border-b-2 border-rose-500 text-rose-600 transition">Properties Management</button>
+        <button onclick="switchTab(event, 'messages')" class="tab-btn px-4 py-2.5 text-sm font-semibold border-b-2 border-transparent text-gray-500 hover:text-gray-700 transition">Messages</button>
+        <button onclick="switchTab(event, 'reservations')" class="tab-btn px-4 py-2.5 text-sm font-semibold border-b-2 border-transparent text-gray-500 hover:text-gray-700 transition">Reservation Requests</button>
+        <button onclick="switchTab(event, 'users')" class="tab-btn px-4 py-2.5 text-sm font-semibold border-b-2 border-transparent text-gray-500 hover:text-gray-700 transition">Registered Users</button>
+    </div>
+
+    <!-- Tab 1: Properties Management -->
+    <div id="properties" class="tab-content">
+        <%- include('tab-properties') %>
+    </div>
+
+    <!-- Tab 2: Messages -->
+    <div id="messages" class="tab-content hidden">
+        <%- include('tab-messages') %>
+    </div>
+
+    <!-- Tab 3: Reservation Requests -->
+    <div id="reservations" class="tab-content hidden">
+        <%- include('tab-reservations') %>
+    </div>
+
+    <!-- Tab 4: Registered Users -->
+    <div id="users" class="tab-content hidden">
+        <%- include('tab-users') %>
+    </div>
+</div>
+
+<!-- Airbnb-Style Native Interactive Calendar Modal Partial -->
+<%- include('calendar-modal') %>
+
+<!-- Embed all messages data securely for the messenger UI -->
+<script>
+    let allMessagesData = <%- JSON.stringify((typeof messages !== 'undefined' && messages) ? messages : []) %>;
+    let activeChatUser = null;
+    let activePropertyId = null;
+</script>
+
+<script>
+    function switchTab(evt, tabId) {
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+        document.querySelectorAll('.tab-btn').forEach(b => {
+            b.classList.remove('border-rose-500', 'text-rose-600');
+            b.classList.add('border-transparent', 'text-gray-500');
+        });
+        document.getElementById(tabId).classList.remove('hidden');
+        
+        // If evt is a real click event, use it; otherwise find the button by tabId
+        if (evt && evt.currentTarget) {
+            evt.currentTarget.classList.remove('border-transparent', 'text-gray-500');
+            evt.currentTarget.classList.add('border-rose-500', 'text-rose-600');
+        } else {
+            // Find button matching this tabId and highlight it
+            document.querySelectorAll('.tab-btn').forEach(b => {
+                if (b.getAttribute('onclick') && b.getAttribute('onclick').includes(tabId)) {
+                    b.classList.remove('border-transparent', 'text-gray-500');
+                    b.classList.add('border-rose-500', 'text-rose-600');
+                }
+            });
+        }
+
+        // Save active tab to localStorage so it persists across refreshes/submits
+        localStorage.setItem('activeAdminTab', tabId);
+    }
+
+    // Restore active tab and chat selection on page load
+    document.addEventListener("DOMContentLoaded", () => {
+        const savedTab = localStorage.getItem('activeAdminTab');
+        if (savedTab && document.getElementById(savedTab)) {
+            switchTab(null, savedTab);
+        }
+
+        // Auto-select first conversation if available
+        const firstChat = document.querySelector('.conversation-item');
+        if (firstChat) {
+            const firstThreadKey = firstChat.getAttribute('data-thread');
+            if (firstThreadKey) {
+                const [uName, pId] = firstThreadKey.split('___');
+                selectConversation(uName, pId);
+            }
+        }
+    });
+
+    // Real-time Drag-and-Drop Reordering Logic
+    const listContainer = document.getElementById('properties-list');
+    if (listContainer) {
+        let draggedRow = null;
+
+        listContainer.addEventListener('dragstart', (e) => {
+            draggedRow = e.target.closest('.property-row');
+            if (draggedRow) setTimeout(() => draggedRow.classList.add('opacity-40'), 0);
+        });
+
+        listContainer.addEventListener('dragend', () => {
+            if (draggedRow) draggedRow.classList.remove('opacity-40');
+            draggedRow = null;
+            saveNewOrder();
+        });
+
+        listContainer.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            const afterElement = getDragAfterElement(listContainer, e.clientY);
+            const currentItem = document.querySelector('.opacity-40');
+            if (currentItem) {
+                if (afterElement == null) {
+                    listContainer.appendChild(currentItem);
+                } else {
+                    listContainer.insertBefore(currentItem, afterElement);
+                }
+            }
+        });
+
+        function getDragAfterElement(container, y) {
+            const draggableElements = [...container.querySelectorAll('.property-row:not(.opacity-40)')];
+            return draggableElements.reduce((closest, child) => {
+                const box = child.getBoundingClientRect();
+                const offset = y - box.top - box.height / 2;
+                if (offset < 0 && offset > closest.offset) {
+                    return { offset: offset, element: child };
+                } else {
+                    return closest;
+                }
+            }, { offset: Number.NEGATIVE_INFINITY }).element;
+        }
+
+        function saveNewOrder() {
+            const rows = document.querySelectorAll('.property-row');
+            const order = Array.from(rows).map(row => row.getAttribute('data-id'));
+
+            fetch('/admin/properties/reorder', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ order })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    const status = document.getElementById('reorder-status');
+                    status.textContent = '✓ Order saved successfully';
+                    setTimeout(() => { status.textContent = ''; }, 2000);
+                }
+            })
+            .catch(err => console.error('Error saving order:', err));
+        }
+    }
+
+    // Messenger Split Inbox & Live Admin Reply Logic
+    function selectConversation(userName, propertyId) {
+        activeChatUser = userName;
+        activePropertyId = propertyId;
+        const targetThreadKey = `${userName}___${propertyId}`;
+
+        document.querySelectorAll('.conversation-item').forEach(el => {
+            el.classList.remove('bg-rose-50/60', 'border-l-4', 'border-rose-500');
+            if (el.getAttribute('data-thread') === targetThreadKey) {
+                el.classList.add('bg-rose-50/60', 'border-l-4', 'border-rose-500');
+            }
+        });
+
+        const headerEl = document.getElementById('activeChatHeader');
+        const feedEl = document.getElementById('activeChatFeed');
+        const replyFormEl = document.getElementById('adminReplyForm');
+
+        headerEl.innerHTML = `<span class="font-bold text-gray-900">Chat with ${userName} <span class="text-xs font-normal text-gray-500">(Property ID: ${propertyId})</span></span>`;
+        replyFormEl.classList.remove('hidden');
+        feedEl.innerHTML = '';
+
+        const threadMsgs = allMessagesData.filter(m => (m.userName || 'Guest User') === userName && String(m.propertyId) === String(propertyId));
+
+        if (threadMsgs.length === 0) {
+            feedEl.innerHTML = '<div class="text-center text-gray-400 text-xs my-auto">No messages in this chat.</div>';
+            return;
+        }
+
+        threadMsgs.forEach(msg => {
+            appendMessageBubble(msg);
+        });
+        feedEl.scrollTop = feedEl.scrollHeight;
+    }
+    
+    function appendMessageBubble(msg) {
+        const feedEl = document.getElementById('activeChatFeed');
+        const isAdmin = msg.sender === 'admin';
+
+        const wrapper = document.createElement('div');
+        wrapper.className = `flex flex-col ${isAdmin ? 'items-end' : 'items-start'} mb-3`;
+        wrapper.innerHTML = `
+            <div class="flex items-center gap-2 px-1 mb-1">
+                <span class="text-[9px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full font-semibold">Property ID: ${msg.propertyId || 'N/A'}</span>
+            </div>
+            <div class="max-w-[75%] rounded-2xl px-4 py-3 text-sm shadow-sm leading-relaxed ${isAdmin ? 'bg-rose-500 text-white rounded-br-none' : 'bg-gray-100 text-gray-800 rounded-bl-none'}">
+                ${escapeHtml(msg.message)}
+            </div>
+            <span class="text-[9px] text-gray-400 px-1 mt-1">${new Date(msg.date).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</span>
+        `;
+        feedEl.appendChild(wrapper);
+        feedEl.scrollTop = feedEl.scrollHeight;
+    }
+
+    function sendAdminReply(e) {
+        e.preventDefault();
+        const input = document.getElementById('adminReplyInput');
+        const text = input.value.trim();
+        if (!text || !activeChatUser) return;
+
+        const payload = {
+            userName: activeChatUser,
+            propertyId: activePropertyId || 'General',
+            message: text
+        };
+
+        fetch('/admin/message/reply', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                allMessagesData.push(data.message);
+                appendMessageBubble(data.message);
+                input.value = '';
+            }
+        })
+        .catch(err => console.error('Error sending reply:', err));
+    }
+
+    function escapeHtml(str) {
+        return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    // Native Airbnb Range Selection & Unchecking Controller Logic
+    let currentYear = new Date().getFullYear();
+    let currentMonth = new Date().getMonth();
+    let blockedDatesSet = new Set();
+    let rangeStartDate = null;
+
+    window.openCalendarModal = function(propertyId, propertyTitle, unavailableDatesStr) {
+        document.getElementById('modalPropertyTitle').textContent = `Calendar: ${propertyTitle}`;
+        document.getElementById('calendarForm').action = `/admin/property/calendar/${propertyId}`;
+        
+        blockedDatesSet.clear();
+        rangeStartDate = null;
+        if (unavailableDatesStr) {
+            unavailableDatesStr.split(',').map(d => d.trim()).filter(Boolean).forEach(d => blockedDatesSet.add(d));
+        }
+
+        const now = new Date();
+        currentYear = now.getFullYear();
+        currentMonth = now.getMonth();
+
+        renderNativeCalendar();
+        document.getElementById('calendarModal').classList.remove('hidden');
+    }
+
+    window.closeCalendarModal = function() {
+        document.getElementById('calendarModal').classList.add('hidden');
+    }
+
+    window.changeMonth = function(direction) {
+        currentMonth += direction;
+        if (currentMonth > 11) {
+            currentMonth = 0;
+            currentYear++;
+        } else if (currentMonth < 0) {
+            currentMonth = 11;
+            currentYear--;
+        }
+        renderNativeCalendar();
+    }
+
+    function renderNativeCalendar() {
+        const gridEl = document.getElementById('nativeCalendarGrid');
+        const labelEl = document.getElementById('calendarMonthYearLabel');
+        gridEl.innerHTML = '';
+
+        const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+        labelEl.textContent = `${monthNames[currentMonth]} ${currentYear}`;
+
+        const firstDayIndex = new Date(currentYear, currentMonth, 1).getDay();
+        const totalDays = new Date(currentYear, currentMonth + 1, 0).getDate();
+
+        for (let i = 0; i < firstDayIndex; i++) {
+            gridEl.appendChild(document.createElement('div'));
+        }
+
+        for (let day = 1; day <= totalDays; day++) {
+            const formattedMonth = String(currentMonth + 1).padStart(2, '0');
+            const formattedDay = String(day).padStart(2, '0');
+            const dateStr = `${currentYear}-${formattedMonth}-${formattedDay}`;
+
+            const dayBtn = document.createElement('button');
+            dayBtn.type = 'button';
+            dayBtn.textContent = day;
+            dayBtn.className = "h-9 w-9 mx-auto flex items-center justify-center rounded-full text-xs font-semibold transition ";
+
+            const isBlocked = blockedDatesSet.has(dateStr);
+            const isRangeStart = rangeStartDate === dateStr;
+
+            if (isRangeStart) {
+                dayBtn.className += "bg-rose-700 text-white ring-2 ring-rose-300 shadow-md";
+            } else if (isBlocked) {
+                dayBtn.className += "bg-rose-500 text-white shadow-sm hover:bg-rose-600";
+            } else {
+                dayBtn.className += "text-gray-700 hover:bg-gray-100";
+            }
+
+            dayBtn.onclick = () => {
+                if (!rangeStartDate) {
+                    rangeStartDate = dateStr;
+                } else {
+                    let start = new Date(rangeStartDate);
+                    let end = new Date(dateStr);
+
+                    if (start > end) {
+                        [start, end] = [end, start];
+                    }
+
+                    let allBlocked = true;
+                    let tempCurr = new Date(start);
+                    let datesInRange = [];
+                    while (tempCurr <= end) {
+                        let dStr = tempCurr.toISOString().split('T')[0];
+                        datesInRange.push(dStr);
+                        if (!blockedDatesSet.has(dStr)) {
+                            allBlocked = false;
+                        }
+                        tempCurr.setDate(tempCurr.getDate() + 1);
+                    }
+
+                    datesInRange.forEach(dStr => {
+                        if (allBlocked) {
+                            blockedDatesSet.delete(dStr);
+                        } else {
+                            blockedDatesSet.add(dStr);
+                        }
+                    });
+
+                    rangeStartDate = null;
+                }
+                document.getElementById('unavailableDatesInput').value = Array.from(blockedDatesSet).sort().join(', ');
+                renderNativeCalendar();
+            };
+
+            gridEl.appendChild(dayBtn);
+        }
+
+        document.getElementById('unavailableDatesInput').value = Array.from(blockedDatesSet).sort().join(', ');
+    }
+
+    window.clearAllBlockedDates = function() {
+        blockedDatesSet.clear();
+        rangeStartDate = null;
+        renderNativeCalendar();
+    }
+</script>
+
+<%- include('../partials/footer') %>

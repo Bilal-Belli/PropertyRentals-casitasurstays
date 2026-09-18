@@ -1,0 +1,71 @@
+<% const msgs = (typeof messages !== 'undefined' && messages) ? messages : []; %>
+<div class="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden grid grid-cols-1 md:grid-cols-3 h-[600px]">
+    <!-- Left Sidebar: Conversations List -->
+    <div class="border-r border-gray-200 bg-gray-50/50 flex flex-col">
+        <div class="p-4 border-b border-gray-200 font-bold text-sm text-gray-800 bg-white">Chats</div>
+        <div id="conversationsList" class="overflow-y-auto flex-grow divide-y divide-gray-100">
+            <% if (msgs.length === 0) { %>
+                <p class="p-4 text-gray-400 text-xs">No conversations yet.</p>
+            <% } else { %>
+                <% 
+                    // Group messages by User + Property ID to make separate threads
+                    const threads = {};
+                    msgs.forEach(m => {
+                        const userName = m.userName || 'Guest User';
+                        const propId = m.propertyId || 'General';
+                        const threadKey = `${userName}___${propId}`; // Unique composite key
+                        
+                        if (!threads[threadKey]) {
+                            threads[threadKey] = {
+                                userName: userName,
+                                propertyId: propId,
+                                messages: []
+                            };
+                        }
+                        threads[threadKey].messages.push(m);
+                    });
+
+                    let isFirst = true;
+                    for (const [threadKey, threadObj] of Object.entries(threads)) {
+                        const userMsgs = threadObj.messages;
+                        const latestMsg = userMsgs[userMsgs.length - 1];
+                %>
+                    <div onclick="selectConversation('<%= threadObj.userName.replace(/'/g, "\\'") %>', '<%= threadObj.propertyId %>')" class="conversation-item p-4 hover:bg-gray-100 cursor-pointer transition flex items-center gap-3 <%= isFirst ? 'bg-rose-50/60 border-l-4 border-rose-500' : '' %>" data-thread="<%= threadKey %>">
+                        <div class="w-10 h-10 rounded-full bg-rose-100 text-rose-600 font-bold flex items-center justify-center text-sm flex-shrink-0">
+                            <%= threadObj.userName.charAt(0).toUpperCase() %>
+                        </div>
+                        <div class="overflow-hidden flex-grow">
+                            <div class="flex justify-between items-center mb-1">
+                                <h4 class="font-bold text-xs text-gray-900 truncate"><%= threadObj.userName %></h4>
+                                <span class="text-[10px] text-gray-400"><%= new Date(latestMsg.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) %></span>
+                            </div>
+                            <div class="flex items-center gap-1 mb-1">
+                                <span class="text-[9px] bg-rose-50 text-rose-600 px-1.5 py-0.2 rounded font-semibold">Prop ID: <%= threadObj.propertyId %></span>
+                            </div>
+                            <p class="text-xs text-gray-500 truncate"><%= latestMsg.message %></p>
+                        </div>
+                    </div>
+                <% 
+                        isFirst = false;
+                    } 
+                %>
+            <% } %>
+        </div>
+    </div>
+
+    <!-- Right Main Pane: Active Chat Discussion & Reply Input -->
+    <div class="md:col-span-2 flex flex-col bg-white">
+        <div id="activeChatHeader" class="p-4 border-b border-gray-200 bg-white font-bold text-sm text-gray-900 flex items-center justify-between">
+            <span>Select a conversation from the left sidebar</span>
+        </div>
+        <!-- Chat Feed Scroll Area -->
+        <div id="activeChatFeed" class="flex-grow p-6 overflow-y-auto space-y-3 bg-gray-50/30 flex flex-col">
+            <div class="text-center text-gray-400 text-xs my-auto">Choose a chat to view and reply</div>
+        </div>
+        <!-- Admin Reply Form -->
+        <form id="adminReplyForm" onsubmit="sendAdminReply(event)" class="p-3 bg-white border-t border-gray-200 flex gap-2 hidden">
+            <input type="text" id="adminReplyInput" placeholder="Type your reply as admin..." required class="flex-grow border border-gray-300 rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:border-rose-500">
+            <button type="submit" class="bg-rose-500 hover:bg-rose-600 text-white px-5 py-2.5 rounded-xl text-xs font-semibold transition">Send Reply</button>
+        </form>
+    </div>
+</div>

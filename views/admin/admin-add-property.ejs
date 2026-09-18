@@ -1,0 +1,205 @@
+<%- include('../partials/header') %>
+<div class="max-w-4xl mx-auto px-4 py-8">
+    <h1 class="text-2xl font-bold mb-6"><%= property ? 'Edit Property' : 'Add New Property' %></h1>
+    <div class="bg-white border border-gray-200 p-8 rounded-2xl shadow-sm">
+        <form action="<%= property ? '/admin/property/edit/' + property.id : '/admin/property/add' %>" method="POST" enctype="multipart/form-data" class="space-y-4" id="propertyForm">
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                <input type="text" name="title" value="<%= property ? property.title : '' %>" required class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500">
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">General Location (City, Country)</label>
+                    <input type="text" name="location" value="<%= property ? property.location : '' %>" required class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Property Type</label>
+                    <input type="text" name="propertyType" value="<%= property ? property.propertyType : '' %>" placeholder="e.g. Villa, Chalet, Apartment" required class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500">
+                </div>
+            </div>
+
+            <!-- Full row Exact Address -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Exact Address</label>
+                <input type="text" name="exactAddress" value="<%= property ? property.exactAddress : '' %>" required class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500">
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Cost per Night ($)</label>
+                    <input type="number" name="price" value="<%= property ? property.price : '' %>" required class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Square Feet</label>
+                    <input type="number" name="squareFeet" value="<%= property ? property.squareFeet : '' %>" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Guests Capacity</label>
+                    <input type="number" name="guestsCapacity" value="<%= property ? property.guestsCapacity : '' %>" required class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Bathrooms</label>
+                    <input type="number" step="0.5" name="bathrooms" value="<%= property ? property.bathrooms : '' %>" required class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500">
+                </div>
+            </div>
+
+            <!-- Full row Sleeping Arrangements -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Sleeping Arrangements</label>
+                <input type="text" name="sleepingArrangements" value="<%= property ? property.sleepingArrangements : '' %>" placeholder="e.g. 2 Queen beds, 1 Sofa bed" required class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500">
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <textarea name="description" rows="4" required class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500"><%= property ? property.description : '' %></textarea>
+            </div>
+
+            <!-- Full row House Rules -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">House Rules</label>
+                <textarea name="houseRules" rows="2" placeholder="e.g. No smoking, No pets" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500"><%= property ? property.houseRules : '' %></textarea>
+            </div>
+
+            <!-- Full row Devices & Amenities -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Devices & Amenities</label>
+                <textarea name="devices" rows="2" placeholder="e.g. Wi-Fi, AC, Smart TV, Washer" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500"><%= property ? property.devices : '' %></textarea>
+            </div>
+
+            <!-- Full row Booking Rules -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Booking Rules</label>
+                <textarea name="bookingRules" rows="2" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500"><%= property ? property.bookingRules : '' %></textarea>
+            </div>
+
+            <!-- Full row Coming & Leaving Rules -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Coming & Leaving Rules (Check-in / Check-out)</label>
+                <textarea name="comingLeavingRules" rows="2" placeholder="Check-in after 3PM, Checkout by 11AM" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500"><%= property ? property.comingLeavingRules : '' %></textarea>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Other Custom Details (Optional)</label>
+                <textarea name="otherDetails" rows="2" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500"><%= property ? property.otherDetails : '' %></textarea>
+            </div>
+
+            <!-- Existing Images Management (Drag to reorder & delete) -->
+            <% if (property && property.images && property.images.length > 0) { %>
+                <div class="border-t pt-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Manage Current Images (Drag to reorder, click 'X' to delete)</label>
+                    <div id="image-container" class="grid grid-cols-3 sm:grid-cols-4 gap-3 p-3 bg-gray-50 border border-dashed border-gray-300 rounded-xl">
+                        <% property.images.forEach((img, index) => { %>
+                            <div draggable="true" class="image-card relative group bg-white border border-gray-200 rounded-lg overflow-hidden shadow-xs cursor-grab active:cursor-grabbing" data-filename="<%= img %>">
+                                <img src="/uploads/<%= img %>" class="w-full h-24 object-cover pointer-events-none">
+                                <span class="absolute top-1 left-1 bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded"><%= index + 1 %></span>
+                                <button type="button" onclick="removeImage(this)" class="absolute top-1 right-1 bg-red-600 hover:bg-red-700 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs shadow-md">×</button>
+                            </div>
+                        <% }) %>
+                    </div>
+                    <input type="hidden" name="existingImagesOrder" id="existingImagesOrder">
+                </div>
+            <% } %>
+
+            <div class="border-t pt-4">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Add More Property Images (Select multiple)</label>
+                <input type="file" name="images" multiple class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-rose-50 file:text-rose-700 hover:file:bg-rose-100">
+            </div>
+
+            <!-- Promo Video Management -->
+            <div class="border-t pt-4">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Promo Video (Optional)</label>
+                <% if (property && property.promoVideo) { %>
+                    <div id="video-wrapper" class="mb-3 p-3 bg-gray-50 border border-gray-200 rounded-xl relative max-w-md">
+                        <video controls class="w-full rounded-lg max-h-48 mb-2">
+                            <source src="/uploads/<%= property.promoVideo %>" type="video/mp4">
+                            Your browser does not support the video tag.
+                        </video>
+                        <button type="button" onclick="removeVideo()" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold">Delete Current Video</button>
+                        <input type="hidden" name="deletePromoVideo" id="deletePromoVideo" value="false">
+                    </div>
+                <% } %>
+                <input type="file" name="promoVideo" accept="video/*" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-rose-50 file:text-rose-700 hover:file:bg-rose-100">
+            </div>
+
+            <button type="submit" class="w-full bg-rose-500 hover:bg-rose-600 text-white font-semibold py-3 rounded-lg text-sm transition"><%= property ? 'Update Property' : 'Save Property' %></button>
+        </form>
+    </div>
+</div>
+
+<!-- Script for Image Sorting/Deletion & Video Deletion -->
+<script>
+    function removeImage(button) {
+        button.closest('.image-card').remove();
+        updateImageOrderInput();
+    }
+
+    function removeVideo() {
+        const wrapper = document.getElementById('video-wrapper');
+        if (wrapper) wrapper.remove();
+        const deleteFlag = document.getElementById('deletePromoVideo');
+        if (deleteFlag) deleteFlag.value = 'true';
+    }
+
+    const container = document.getElementById('image-container');
+    if (container) {
+        let draggedItem = null;
+
+        container.addEventListener('dragstart', (e) => {
+            draggedItem = e.target.closest('.image-card');
+            setTimeout(() => draggedItem.classList.add('opacity-40'), 0);
+        });
+
+        container.addEventListener('dragend', () => {
+            if (draggedItem) draggedItem.classList.remove('opacity-40');
+            draggedItem = null;
+            updateImageOrderInput();
+        });
+
+        container.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            const afterElement = getDragAfterElement(container, e.clientX);
+            const currentItem = document.querySelector('.opacity-40');
+            if (currentItem) {
+                if (afterElement == null) {
+                    container.appendChild(currentItem);
+                } else {
+                    container.insertBefore(currentItem, afterElement);
+                }
+            }
+        });
+
+        function getDragAfterElement(container, x) {
+            const draggableElements = [...container.querySelectorAll('.image-card:not(.opacity-40)')];
+            return draggableElements.reduce((closest, child) => {
+                const box = child.getBoundingClientRect();
+                const offset = x - box.left - box.width / 2;
+                if (offset < 0 && offset > closest.offset) {
+                    return { offset: offset, element: child };
+                } else {
+                    return closest;
+                }
+            }, { offset: Number.NEGATIVE_INFINITY }).element;
+        }
+    }
+
+    function updateImageOrderInput() {
+        const cards = document.querySelectorAll('.image-card');
+        const filenames = Array.from(cards).map(card => card.getAttribute('data-filename'));
+        const inputField = document.getElementById('existingImagesOrder');
+        if (inputField) {
+            inputField.value = JSON.stringify(filenames);
+        }
+    }
+
+    updateImageOrderInput();
+
+    document.getElementById('propertyForm').addEventListener('submit', () => {
+        updateImageOrderInput();
+    });
+</script>
+<%- include('../partials/footer') %>
