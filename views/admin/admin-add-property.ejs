@@ -1,6 +1,12 @@
 <%- include('../partials/header') %>
 <div class="max-w-4xl mx-auto px-4 py-8">
-    <h1 class="text-2xl font-bold mb-6"><%= property ? 'Edit Property' : 'Add New Property' %></h1>
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-2xl font-bold"><%= property ? 'Edit Property' : 'Add New Property' %></h1>
+        <a href="/admin" class="inline-flex items-center gap-1 text-xs font-semibold text-gray-600 hover:text-rose-500 bg-white border border-gray-200 px-3 py-1.5 rounded-lg shadow-sm transition">
+            &larr; Back to Admin Portal
+        </a>
+    </div>
+
     <div class="bg-white border border-gray-200 p-8 rounded-2xl shadow-sm">
         <form action="<%= property ? '/admin/property/edit/' + property.id : '/admin/property/add' %>" method="POST" enctype="multipart/form-data" class="space-y-4" id="propertyForm">
             
@@ -126,7 +132,10 @@
                 <input type="file" name="promoVideo" accept="video/*" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-rose-50 file:text-rose-700 hover:file:bg-rose-100">
             </div>
 
-            <button type="submit" class="w-full bg-rose-500 hover:bg-rose-600 text-white font-semibold py-3 rounded-lg text-sm transition"><%= property ? 'Update Property' : 'Save Property' %></button>
+            <div class="flex items-center gap-3 pt-2">
+                <a href="/admin" class="w-1/3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-3 rounded-lg text-sm text-center transition">Cancel</a>
+                <button type="submit" class="w-2/3 bg-rose-500 hover:bg-rose-600 text-white font-semibold py-3 rounded-lg text-sm transition"><%= property ? 'Update Property' : 'Save Property' %></button>
+            </div>
         </form>
     </div>
 </div>
