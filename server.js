@@ -2,6 +2,11 @@ const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
+const session = require('express-session');
+const bcrypt = require('bcryptjs');
+
+// Load environment variables if using a .env file
+require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -12,7 +17,24 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 app.set('view engine', 'ejs');
 
-// Multer Setup for Image Uploads
+// Session Configuration (7 Days lifespan)
+app.use(session({
+    secret: process.env.SESSION_SECRET || 'your-super-secret-key-change-this',
+    resave: false,
+    saveUninitialized: false,
+    cookie: { 
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 Days in milliseconds
+        secure: false // Set to true if running behind HTTPS in production
+    }
+}));
+
+// Global template middleware for session user
+app.use((req, res, next) => {
+    res.locals.currentUser = req.session.currentUser || null;
+    next();
+});
+
+// Multer Setup for Image & Video Uploads
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
         const uploadDir = path.join(__dirname, 'public/uploads');
@@ -49,13 +71,6 @@ const writeJSON = (filename, data) => {
     fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
 };
 
-let currentUser = null; // Simulated logged-in user session
-
-app.use((req, res, next) => {
-    res.locals.currentUser = currentUser;
-    next();
-});
-
 // ==================== ROUTES ====================
 
 // Home: Search & List Properties
@@ -83,50 +98,73 @@ app.get('/property/:id', (req, res) => {
 
 // Authentication Routes
 app.get('/login', (req, res) => res.render('login', { error: null }));
-app.post('/login', (req, res) => {
+
+app.post('/login', async (req, res) => {
     const { email, password } = req.body;
+
+    // 1. Check if login matches Admin environment variables
+    const adminEmail = process.env.ADMIN_EMAIL || 'admin@casitasurstays.com';
+    const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
+
+    if (email === adminEmail && password === adminPassword) {
+        req.session.currentUser = {
+            id: 'admin',
+            name: 'Administrator',
+            email: adminEmail,
+            role: 'admin'
+        };
+        return res.redirect('/admin');
+    }
+
+    // 2. Check regular users from users.json (using bcrypt check)
     const users = readJSON('users.json');
-    const user = users.find(u => u.email === email && u.password === password);
+    const user = users.find(u => u.email === email);
+
     if (!user) {
         return res.render('login', { error: 'Invalid email or password' });
     }
-    currentUser = user;
-    if (user.role === 'admin') {
-        res.redirect('/admin');
-    } else {
-        res.redirect('/user/dashboard');
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+        return res.render('login', { error: 'Invalid email or password' });
     }
+
+    // Save regular user session
+    req.session.currentUser = user;
+    res.redirect('/user/dashboard');
 });
 
 app.get('/register', (req, res) => res.render('register', { error: null }));
 
-app.post('/register', (req, res) => {
+app.post('/register', async (req, res) => {
     const { firstName, lastName, phone, email, password, website, sliderVerified } = req.body;
 
     // 1. Check Honeypot spam bot
     if (website && website.trim() !== "") {
-        return res.status(400).render('register', { error: 'Automated submission detected.', currentUser: null });
+        return res.status(400).render('register', { error: 'Automated submission detected.' });
     }
 
     // 2. Check Slider CAPTCHA verification
     if (sliderVerified !== 'true') {
-        return res.status(400).render('register', { error: 'Please complete the slide verification.', currentUser: null });
+        return res.status(400).render('register', { error: 'Please complete the slide verification.' });
     }
 
     // 3. Server-side Password Criteria Check
     const passwordRegex = /^(?=.*[A-Z])(?=.*\d).{8,}$/;
     if (!password || !passwordRegex.test(password)) {
         return res.status(400).render('register', { 
-            error: 'Password must be at least 8 characters long and contain at least one uppercase letter and one number.', 
-            currentUser: null 
+            error: 'Password must be at least 8 characters long and contain at least one uppercase letter and one number.' 
         });
     }
 
     // 4. Existing User Verification & Registration Logic
     const users = readJSON('users.json');
     if (users.some(u => u.email === email)) {
-        return res.render('register', { error: 'Email already exists', currentUser: null });
+        return res.render('register', { error: 'Email already exists' });
     }
+
+    // Hash Password securely using bcrypt
+    const hashedPassword = await bcrypt.hash(password, 10);
 
     const fullName = `${firstName.trim()} ${lastName.trim()}`;
     const newUser = { 
@@ -136,19 +174,21 @@ app.post('/register', (req, res) => {
         name: fullName, 
         phone: phone.trim(),
         email, 
-        password, 
+        password: hashedPassword, 
         role: 'user' 
     };
 
     users.push(newUser);
     writeJSON('users.json', users);
-    currentUser = newUser;
+
+    // Auto-login upon registration
+    req.session.currentUser = newUser;
     res.redirect('/user/dashboard');
 });
 
 // Admin reply to a user message thread
 app.post('/admin/message/reply', (req, res) => {
-    if (!currentUser || currentUser.role !== 'admin') return res.status(403).json({ error: 'Unauthorized' });
+    if (!req.session.currentUser || req.session.currentUser.role !== 'admin') return res.status(403).json({ error: 'Unauthorized' });
     const { conversationId, message } = req.body;
     if (!message || !conversationId) return res.status(400).json({ error: 'Missing data' });
 
@@ -168,22 +208,23 @@ app.post('/admin/message/reply', (req, res) => {
 });
 
 app.get('/logout', (req, res) => {
-    currentUser = null;
-    res.redirect('/');
+    req.session.destroy(() => {
+        res.redirect('/');
+    });
 });
 
 // ==================== USER PORTAL ====================
 app.get('/user/dashboard', (req, res) => {
-    if (!currentUser || currentUser.role !== 'user') return res.redirect('/login');
-    const reservations = readJSON('reservations.json').filter(r => r.userId === currentUser.id);
+    if (!req.session.currentUser || req.session.currentUser.role !== 'user') return res.redirect('/login');
+    const reservations = readJSON('reservations.json').filter(r => r.userId === req.session.currentUser.id);
     const properties = readJSON('properties.json');
-    const messages = readJSON('messages.json').filter(c => c.userId === currentUser.id);
+    const messages = readJSON('messages.json').filter(c => c.userId === req.session.currentUser.id);
     
     res.render('user-dashboard', { reservations, properties, messages });
 });
 
 app.post('/user/message/reply', (req, res) => {
-    if (!currentUser || currentUser.role !== 'user') return res.status(403).json({ error: 'Unauthorized' });
+    if (!req.session.currentUser || req.session.currentUser.role !== 'user') return res.status(403).json({ error: 'Unauthorized' });
     const { conversationId, message } = req.body;
     if (!message || !conversationId) return res.status(400).json({ error: 'Missing data' });
 
@@ -204,11 +245,11 @@ app.post('/user/message/reply', (req, res) => {
 
 // Send message to property host
 app.post('/property/:id/message', (req, res) => {
-    if (!currentUser) return res.redirect('/login');
+    if (!req.session.currentUser) return res.redirect('/login');
     const { message } = req.body;
     const propertyId = req.params.id;
-    const userId = currentUser.id;
-    const userName = currentUser.name;
+    const userId = req.session.currentUser.id;
+    const userName = req.session.currentUser.name;
     const conversationId = `${userId}_${propertyId}`;
 
     const conversations = readJSON('messages.json');
@@ -239,14 +280,14 @@ app.post('/property/:id/message', (req, res) => {
 
 // Request reservation
 app.post('/property/:id/reserve', (req, res) => {
-    if (!currentUser) return res.redirect('/login');
+    if (!req.session.currentUser) return res.redirect('/login');
     const { checkIn, checkOut } = req.body;
     const reservations = readJSON('reservations.json');
     reservations.push({
         id: Date.now().toString(),
         propertyId: req.params.id,
-        userId: currentUser.id,
-        userName: currentUser.name,
+        userId: req.session.currentUser.id,
+        userName: req.session.currentUser.name,
         checkIn,
         checkOut,
         status: 'Pending'
@@ -256,12 +297,11 @@ app.post('/property/:id/reserve', (req, res) => {
 });
 
 // ==================== ADMIN PORTAL ====================
-// ==================== ADMIN PORTAL ====================
 app.get('/admin', (req, res) => {
-    if (!currentUser || currentUser.role !== 'admin') return res.redirect('/login');
+    if (!req.session.currentUser || req.session.currentUser.role !== 'admin') return res.redirect('/login');
     const properties = readJSON('properties.json');
     const reservations = readJSON('reservations.json');
-    const messages = readJSON('messages.json'); // Array of conversation objects
+    const messages = readJSON('messages.json');
     
     const users = readJSON('users.json')
         .filter(u => u.role === 'user')
@@ -290,9 +330,9 @@ app.get('/admin', (req, res) => {
     res.render('admin/admin-dashboard', { properties, reservations, messages, users });
 });
 
-// Update Reservation Status (Single switch)
+// Update Reservation Status
 app.post('/admin/reservation/:id/status', (req, res) => {
-    if (!currentUser || currentUser.role !== 'admin') return res.status(403).json({ error: 'Unauthorized' });
+    if (!req.session.currentUser || req.session.currentUser.role !== 'admin') return res.status(403).json({ error: 'Unauthorized' });
     const { status } = req.body;
     
     const reservations = readJSON('reservations.json');
@@ -303,7 +343,6 @@ app.post('/admin/reservation/:id/status', (req, res) => {
     resv.status = status;
     writeJSON('reservations.json', reservations);
 
-    // If status changed to 'Accepted', automatically make dates unavailable in the property calendar
     if (status === 'Accepted' && oldStatus !== 'Accepted') {
         const properties = readJSON('properties.json');
         const property = properties.find(p => p.id === resv.propertyId);
@@ -313,7 +352,6 @@ app.post('/admin/reservation/:id/status', (req, res) => {
                 property.unavailableDates = [];
             }
 
-            // Calculate all dates in the range from checkIn to checkOut
             let curr = new Date(resv.checkIn);
             const endD = new Date(resv.checkOut);
 
@@ -325,7 +363,6 @@ app.post('/admin/reservation/:id/status', (req, res) => {
                 curr.setDate(curr.getDate() + 1);
             }
 
-            // Sort dates chronologically
             property.unavailableDates.sort();
             writeJSON('properties.json', properties);
         }
@@ -336,7 +373,7 @@ app.post('/admin/reservation/:id/status', (req, res) => {
 
 // Real-time Save Admin Note for Reservation
 app.post('/admin/reservation/:id/note', (req, res) => {
-    if (!currentUser || currentUser.role !== 'admin') return res.status(403).json({ error: 'Unauthorized' });
+    if (!req.session.currentUser || req.session.currentUser.role !== 'admin') return res.status(403).json({ error: 'Unauthorized' });
     const { note } = req.body;
     const reservations = readJSON('reservations.json');
     const resv = reservations.find(r => r.id === req.params.id);
@@ -349,23 +386,22 @@ app.post('/admin/reservation/:id/note', (req, res) => {
 
 // Delete Reservation
 app.post('/admin/reservation/:id/delete', (req, res) => {
-    if (!currentUser || currentUser.role !== 'admin') return res.redirect('/login');
+    if (!req.session.currentUser || req.session.currentUser.role !== 'admin') return res.redirect('/login');
     let reservations = readJSON('reservations.json');
     reservations = reservations.filter(r => r.id !== req.params.id);
     writeJSON('reservations.json', reservations);
     res.redirect('/admin');
 });
 
-// Delete Property Route (Removes from JSON & unlinks images/videos from disk)
+// Delete Property Route
 app.post('/admin/property/delete/:id', (req, res) => {
-    if (!currentUser || currentUser.role !== 'admin') return res.redirect('/login');
+    if (!req.session.currentUser || req.session.currentUser.role !== 'admin') return res.redirect('/login');
     let properties = readJSON('properties.json');
     const index = properties.findIndex(p => p.id === req.params.id);
     
     if (index !== -1) {
         const prop = properties[index];
 
-        // Delete images from disk
         if (prop.images && Array.isArray(prop.images)) {
             prop.images.forEach(img => {
                 const imgPath = path.join(__dirname, 'public/uploads', img);
@@ -374,15 +410,12 @@ app.post('/admin/property/delete/:id', (req, res) => {
                 }
             });
         }
-        // Also check legacy single image field just in case
         if (prop.image && prop.image !== 'default-chalet.jpg') {
             const singleImgPath = path.join(__dirname, 'public/uploads', prop.image);
             if (fs.existsSync(singleImgPath)) {
                 try { fs.unlinkSync(singleImgPath); } catch (err) { console.error(err); }
             }
         }
-
-        // Delete promo video from disk if it exists
         if (prop.promoVideo) {
             const videoPath = path.join(__dirname, 'public/uploads', prop.promoVideo);
             if (fs.existsSync(videoPath)) {
@@ -390,7 +423,6 @@ app.post('/admin/property/delete/:id', (req, res) => {
             }
         }
 
-        // Remove from array and write back to JSON
         properties.splice(index, 1);
         writeJSON('properties.json', properties);
     }
@@ -399,7 +431,7 @@ app.post('/admin/property/delete/:id', (req, res) => {
 
 // Delete User Route
 app.post('/admin/user/:id/delete', (req, res) => {
-    if (!currentUser || currentUser.role !== 'admin') return res.redirect('/login');
+    if (!req.session.currentUser || req.session.currentUser.role !== 'admin') return res.redirect('/login');
     let users = readJSON('users.json');
     users = users.filter(u => u.id !== req.params.id);
     writeJSON('users.json', users);
@@ -408,13 +440,13 @@ app.post('/admin/user/:id/delete', (req, res) => {
 
 // Add Property Form (GET)
 app.get('/admin/property/add', (req, res) => {
-    if (!currentUser || currentUser.role !== 'admin') return res.redirect('/login');
+    if (!req.session.currentUser || req.session.currentUser.role !== 'admin') return res.redirect('/login');
     res.render('admin/admin-add-property', { property: null });
 });
 
 // Save New Property (POST)
 app.post('/admin/property/add', propertyUploads, (req, res) => {
-    if (!currentUser || currentUser.role !== 'admin') return res.redirect('/login');
+    if (!req.session.currentUser || req.session.currentUser.role !== 'admin') return res.redirect('/login');
     const { 
         title, location, price, description, propertyType, guestsCapacity, 
         sleepingArrangements, bathrooms, squareFeet, exactAddress, 
@@ -454,9 +486,9 @@ app.post('/admin/property/add', propertyUploads, (req, res) => {
     res.redirect('/admin');
 });
 
-// Edit Property Form (GET) - FIXED: This route was missing!
+// Edit Property Form (GET)
 app.get('/admin/property/edit/:id', (req, res) => {
-    if (!currentUser || currentUser.role !== 'admin') return res.redirect('/login');
+    if (!req.session.currentUser || req.session.currentUser.role !== 'admin') return res.redirect('/login');
     const properties = readJSON('properties.json');
     const property = properties.find(p => p.id === req.params.id);
     if (!property) return res.status(404).send('Property not found');
@@ -465,7 +497,7 @@ app.get('/admin/property/edit/:id', (req, res) => {
 
 // Update Property (POST)
 app.post('/admin/property/edit/:id', propertyUploads, (req, res) => {
-    if (!currentUser || currentUser.role !== 'admin') return res.redirect('/login');
+    if (!req.session.currentUser || req.session.currentUser.role !== 'admin') return res.redirect('/login');
     const properties = readJSON('properties.json');
     const index = properties.findIndex(p => p.id === req.params.id);
     if (index === -1) return res.status(404).send('Property not found');
@@ -495,7 +527,6 @@ app.post('/admin/property/edit/:id', propertyUploads, (req, res) => {
     prop.comingLeavingRules = comingLeavingRules;
     prop.otherDetails = otherDetails;
 
-    // Process retained images and delete unreferenced ones from disk
     let retainedImages = [];
     if (existingImagesOrder) {
         try {
@@ -524,7 +555,6 @@ app.post('/admin/property/edit/:id', propertyUploads, (req, res) => {
     prop.images = [...retainedImages, ...newImages];
     prop.image = prop.images.length > 0 ? prop.images[0] : 'default-chalet.jpg';
 
-    // Handle Promo Video deletion or replacement from disk & JSON
     if (deletePromoVideo === '1' || deletePromoVideo === 'true') {
         if (prop.promoVideo) {
             const videoPath = path.join(__dirname, 'public/uploads', prop.promoVideo);
@@ -552,8 +582,8 @@ app.post('/admin/property/edit/:id', propertyUploads, (req, res) => {
 
 // Real-time Property Reordering Route
 app.post('/admin/properties/reorder', (req, res) => {
-    if (!currentUser || currentUser.role !== 'admin') return res.status(403).json({ error: 'Unauthorized' });
-    const { order } = req.body; // Array of property IDs in new order
+    if (!req.session.currentUser || req.session.currentUser.role !== 'admin') return res.status(403).json({ error: 'Unauthorized' });
+    const { order } = req.body;
     if (!Array.isArray(order)) return res.status(400).json({ error: 'Invalid data' });
 
     const properties = readJSON('properties.json');
@@ -564,26 +594,13 @@ app.post('/admin/properties/reorder', (req, res) => {
 
 // Edit Calendar / Unavailable Dates
 app.post('/admin/property/calendar/:id', (req, res) => {
-    if (!currentUser || currentUser.role !== 'admin') return res.redirect('/login');
+    if (!req.session.currentUser || req.session.currentUser.role !== 'admin') return res.redirect('/login');
     const { unavailableDates } = req.body; 
     const properties = readJSON('properties.json');
     const property = properties.find(p => p.id === req.params.id);
     if (property) {
         property.unavailableDates = unavailableDates ? unavailableDates.split(',').map(d => d.trim()) : [];
         writeJSON('properties.json', properties);
-    }
-    res.redirect('/admin');
-});
-
-// Accept or Decline Reservations
-app.post('/admin/reservation/:id/:action', (req, res) => {
-    if (!currentUser || currentUser.role !== 'admin') return res.redirect('/login');
-    const { id, action } = req.params;
-    const reservations = readJSON('reservations.json');
-    const reservation = reservations.find(r => r.id === id);
-    if (reservation) {
-        reservation.status = action === 'accept' ? 'Accepted' : 'Declined';
-        writeJSON('reservations.json', reservations);
     }
     res.redirect('/admin');
 });
