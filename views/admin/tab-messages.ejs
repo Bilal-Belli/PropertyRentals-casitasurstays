@@ -38,9 +38,10 @@
         </div>
     </div>
 
-    <!-- Right Main Pane: Active Chat Discussion & Sticky Reply Input -->
-    <div id="chatMainPane" class="md:col-span-2 flex flex-col h-full bg-white absolute md:relative inset-0 z-20 bg-white transform translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out">
-        <!-- Chat Header -->
+    <!-- Right Main Pane: Active Chat Discussion & Pinned Reply Input -->
+    <div id="chatMainPane" class="md:col-span-2 flex flex-col h-full bg-white absolute md:relative inset-0 z-20 bg-white transform translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out overflow-hidden">
+        
+        <!-- Chat Header (Fixed Header) -->
         <div id="activeChatHeader" class="p-4 border-b border-gray-200 bg-white font-bold text-sm text-gray-900 flex items-center justify-between flex-shrink-0 z-10 shadow-sm">
             <div class="flex items-center gap-2 overflow-hidden">
                 <button type="button" onclick="backToChatList()" class="md:hidden p-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-100 mr-1 flex-shrink-0">
@@ -50,13 +51,13 @@
             </div>
         </div>
 
-        <!-- Scrollable Chat Feed Area with visible clean scrollbar -->
-        <div id="activeChatFeed" class="flex-grow p-4 sm:p-6 overflow-y-auto space-y-3 bg-gray-50/30 flex flex-col mb-16" style="scrollbar-width: thin; scrollbar-color: #cbd5e1 #f8fafc;">
+        <!-- Scrollable Chat Feed Area (min-h-0 and flex-grow ensure it takes available space and scrolls internally without overflowing) -->
+        <div id="activeChatFeed" class="flex-grow min-h-0 p-4 sm:p-6 overflow-y-auto space-y-3 bg-gray-50/30 flex flex-col" style="scrollbar-width: thin; scrollbar-color: #cbd5e1 #f8fafc;">
             <div class="text-center text-gray-400 text-xs my-auto">Choose a chat to view and reply</div>
         </div>
 
-        <!-- Sticky Admin Reply Form at the Bottom -->
-        <form id="adminReplyForm" onsubmit="sendAdminReply(event)" class="absolute bottom-0 left-0 right-0 p-3 bg-white border-t border-gray-200 flex gap-2 hidden z-30 shadow-md">
+        <!-- Pinned Reply Form at the Bottom (flex-shrink-0 guarantees it never collapses or hides) -->
+        <form id="adminReplyForm" onsubmit="sendAdminReply(event)" class="p-3 bg-white border-t border-gray-200 flex gap-2 hidden flex-shrink-0 z-30 shadow-md">
             <input type="text" id="adminReplyInput" placeholder="Type your reply as admin..." required class="flex-grow border border-gray-300 rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:border-rose-500">
             <button type="submit" class="bg-rose-500 hover:bg-rose-600 text-white px-4 sm:px-5 py-2.5 rounded-xl text-xs font-semibold transition flex-shrink-0">Send</button>
         </form>

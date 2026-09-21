@@ -76,7 +76,7 @@
             </div>
 
             <!-- Right Main Pane: Active Chat Feed & Sticky Input Box (Slides over on mobile) -->
-            <div id="userChatMainPane" class="md:col-span-2 flex flex-col h-full bg-white absolute md:relative inset-0 z-20 bg-white transform translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out">
+            <div id="userChatMainPane" class="md:col-span-2 flex flex-col h-full bg-white absolute md:relative inset-0 z-20 transform translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out overflow-hidden">
                 <div id="activeUserChatHeader" class="p-4 border-b border-gray-200 bg-white font-bold text-sm text-gray-900 flex items-center justify-between flex-shrink-0 z-10 shadow-sm">
                     <div class="flex items-center gap-2 overflow-hidden">
                         <button type="button" onclick="backToUserChatList()" class="md:hidden p-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-100 mr-1 flex-shrink-0">
@@ -85,12 +85,14 @@
                         <span id="activeUserChatTitleText" class="truncate">Select a conversation</span>
                     </div>
                 </div>
-                <!-- Chat Feed Scroll Area -->
-                <div id="activeUserChatFeed" class="flex-grow p-4 sm:p-6 overflow-y-auto space-y-3 bg-gray-50/30 flex flex-col mb-16" style="scrollbar-width: thin; scrollbar-color: #cbd5e1 #f8fafc;">
+
+                <!-- Chat Feed Scroll Area (flex-grow + min-h-0 ensures independent scrolling without overflowing containers) -->
+                <div id="activeUserChatFeed" class="flex-grow min-h-0 p-4 sm:p-6 overflow-y-auto space-y-3 bg-gray-50/30 flex flex-col" style="scrollbar-width: thin; scrollbar-color: #cbd5e1 #f8fafc;">
                     <div class="text-center text-gray-400 text-xs my-auto">Choose a conversation to start chatting</div>
                 </div>
-                <!-- User Reply Form -->
-                <form id="userReplyForm" onsubmit="sendUserReply(event)" class="absolute bottom-0 left-0 right-0 p-3 bg-white border-t border-gray-200 flex gap-2 hidden z-30 shadow-md">
+
+                <!-- User Reply Form (flex-shrink-0 guarantees it stays permanently pinned at the bottom) -->
+                <form id="userReplyForm" onsubmit="sendUserReply(event)" class="p-3 bg-white border-t border-gray-200 flex gap-2 hidden flex-shrink-0 z-30 shadow-md">
                     <input type="text" id="userReplyInput" placeholder="Type your reply to host..." required class="flex-grow border border-gray-300 rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:border-rose-500">
                     <button type="submit" class="bg-rose-500 hover:bg-rose-600 text-white px-4 sm:px-5 py-2.5 rounded-xl text-xs font-semibold transition flex-shrink-0">Send</button>
                 </form>
