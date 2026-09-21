@@ -99,12 +99,35 @@ app.post('/login', (req, res) => {
 });
 
 app.get('/register', (req, res) => res.render('register', { error: null }));
+
 app.post('/register', (req, res) => {
-    const { firstName, lastName, phone, email, password } = req.body;
+    const { firstName, lastName, phone, email, password, website, sliderVerified } = req.body;
+
+    // 1. Check Honeypot spam bot
+    if (website && website.trim() !== "") {
+        return res.status(400).render('register', { error: 'Automated submission detected.', currentUser: null });
+    }
+
+    // 2. Check Slider CAPTCHA verification
+    if (sliderVerified !== 'true') {
+        return res.status(400).render('register', { error: 'Please complete the slide verification.', currentUser: null });
+    }
+
+    // 3. Server-side Password Criteria Check
+    const passwordRegex = /^(?=.*[A-Z])(?=.*\d).{8,}$/;
+    if (!password || !passwordRegex.test(password)) {
+        return res.status(400).render('register', { 
+            error: 'Password must be at least 8 characters long and contain at least one uppercase letter and one number.', 
+            currentUser: null 
+        });
+    }
+
+    // 4. Existing User Verification & Registration Logic
     const users = readJSON('users.json');
     if (users.some(u => u.email === email)) {
-        return res.render('register', { error: 'Email already exists' });
+        return res.render('register', { error: 'Email already exists', currentUser: null });
     }
+
     const fullName = `${firstName.trim()} ${lastName.trim()}`;
     const newUser = { 
         id: Date.now().toString(), 
@@ -116,6 +139,7 @@ app.post('/register', (req, res) => {
         password, 
         role: 'user' 
     };
+
     users.push(newUser);
     writeJSON('users.json', users);
     currentUser = newUser;

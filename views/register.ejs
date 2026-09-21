@@ -2,35 +2,198 @@
 <div class="max-w-xl mx-auto px-4 py-8">
     <div class="bg-white border border-gray-200 p-8 rounded-2xl shadow-sm">
         <h1 class="text-2xl font-bold mb-6 text-center">Create Account</h1>
+        
+        <!-- General error banner -->
+        <div id="formErrorBanner" class="bg-red-50 text-red-600 p-3 rounded-lg text-sm mb-4 hidden"></div>
+
         <% if (typeof error !== 'undefined' && error) { %>
             <div class="bg-red-50 text-red-600 p-3 rounded-lg text-sm mb-4"><%= error %></div>
         <% } %>
-        <form action="/register" method="POST">
+        
+        <form action="/register" method="POST" id="registerForm" onsubmit="return validateForm(event)">
+            <!-- Honeypot field (hidden from real users, bots will auto-fill it) -->
+            <div style="display:none;" aria-hidden="true">
+                <label for="website">Website</label>
+                <input type="text" name="website" id="website" tabindex="-1" autocomplete="off">
+            </div>
+
             <div class="grid grid-cols-2 gap-4 mb-4">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">First Name</label>
-                    <input type="text" name="firstName" required class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500">
+                    <input type="text" name="firstName" id="firstName" required class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500">
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
-                    <input type="text" name="lastName" required class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500">
+                    <input type="text" name="lastName" id="lastName" required class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500">
                 </div>
             </div>
             <div class="mb-4">
                 <label class="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
-                <input type="tel" name="phone" required class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500" placeholder="+1 (555) 000-0000">
+                <input type="tel" name="phone" id="phone" required class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500" placeholder="+1 (555) 000-0000">
             </div>
             <div class="mb-4">
                 <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                <input type="email" name="email" required class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500" placeholder="you@example.com">
+                <input type="email" name="email" id="email" required class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500" placeholder="you@example.com">
             </div>
-            <div class="mb-6">
+
+            <!-- Password Field with Toggle Eye & Real-time Criteria -->
+            <div class="mb-4 relative">
                 <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
-                <input type="password" name="password" required class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500" placeholder="••••••••">
+                <div class="relative">
+                    <input type="password" name="password" id="passwordInput" oninput="checkPasswordCriteria()" required class="w-full border border-gray-300 rounded-lg p-3 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500" placeholder="••••••••">
+                    <button type="button" onclick="togglePasswordVisibility()" class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 focus:outline-none">
+                        <svg id="eyeIcon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                        </svg>
+                    </button>
+                </div>
+                
+                <!-- Password Criteria Checklist -->
+                <div class="mt-2 p-3 bg-gray-50 border border-gray-100 rounded-lg text-xs space-y-1">
+                    <p class="font-medium text-gray-600 mb-1">Password must contain:</p>
+                    <div id="lengthCheck" class="text-gray-400 flex items-center gap-1.5">&#x2022; At least 8 characters</div>
+                    <div id="uppercaseCheck" class="text-gray-400 flex items-center gap-1.5">&#x2022; One uppercase letter</div>
+                    <div id="numberCheck" class="text-gray-400 flex items-center gap-1.5">&#x2022; One number</div>
+                </div>
             </div>
+
+            <!-- Custom Interactive Slider CAPTCHA -->
+            <div class="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-xl select-none">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Security Verification: Drag to verify</label>
+                <div id="sliderTrack" class="relative h-12 bg-gray-200 rounded-xl flex items-center px-1 overflow-hidden transition-colors">
+                    <span id="sliderText" class="absolute inset-0 flex items-center justify-center text-xs font-semibold text-gray-500 pointer-events-none">Slide to verify &rarr;</span>
+                    <div id="sliderThumb" class="w-10 h-10 bg-rose-500 hover:bg-rose-600 rounded-lg cursor-pointer flex items-center justify-center text-white font-bold shadow-md relative z-10 transition-all left-0" style="touch-action: none;">
+                        &rarr;
+                    </div>
+                </div>
+                <input type="hidden" name="sliderVerified" id="sliderVerified" value="false">
+                <p id="sliderError" class="text-xs text-red-500 mt-1 hidden">Please complete the slide verification.</p>
+            </div>
+
             <button type="submit" class="w-full bg-rose-500 hover:bg-rose-600 text-white font-semibold py-3 rounded-lg text-sm transition">Sign Up</button>
         </form>
         <p class="text-center text-sm text-gray-500 mt-4">Already have an account? <a href="/login" class="text-rose-500 font-semibold">Log in</a></p>
     </div>
 </div>
+
+<script>
+    // 1. Password Eye Toggle
+    function togglePasswordVisibility() {
+        const input = document.getElementById('passwordInput');
+        const icon = document.getElementById('eyeIcon');
+        if (input.type === 'password') {
+            input.type = 'text';
+            icon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7a10.05 10.05 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.542 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"></path>`;
+        } else {
+            input.type = 'password';
+            icon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>`;
+        }
+    }
+
+    // 2. Real-time Password Criteria Checker
+    function checkPasswordCriteria() {
+        const val = document.getElementById('passwordInput').value;
+        const lengthCheck = document.getElementById('lengthCheck');
+        const uppercaseCheck = document.getElementById('uppercaseCheck');
+        const numberCheck = document.getElementById('numberCheck');
+
+        if (val.length >= 8) {
+            lengthCheck.className = 'text-green-600 flex items-center gap-1.5 font-medium';
+            lengthCheck.innerHTML = '&#x2713; At least 8 characters';
+        } else {
+            lengthCheck.className = 'text-gray-400 flex items-center gap-1.5';
+            lengthCheck.innerHTML = '&#x2022; At least 8 characters';
+        }
+
+        if (/[A-Z]/.test(val)) {
+            uppercaseCheck.className = 'text-green-600 flex items-center gap-1.5 font-medium';
+            uppercaseCheck.innerHTML = '&#x2713; One uppercase letter';
+        } else {
+            uppercaseCheck.className = 'text-gray-400 flex items-center gap-1.5';
+            uppercaseCheck.innerHTML = '&#x2022; One uppercase letter';
+        }
+
+        if (/[0-9]/.test(val)) {
+            numberCheck.className = 'text-green-600 flex items-center gap-1.5 font-medium';
+            numberCheck.innerHTML = '&#x2713; One number';
+        } else {
+            numberCheck.className = 'text-gray-400 flex items-center gap-1.5';
+            numberCheck.innerHTML = '&#x2022; One number';
+        }
+    }
+
+    // 3. Interactive Slider CAPTCHA Logic
+    const thumb = document.getElementById('sliderThumb');
+    const track = document.getElementById('sliderTrack');
+    const text = document.getElementById('sliderText');
+    const verifiedInput = document.getElementById('sliderVerified');
+    const sliderError = document.getElementById('sliderError');
+
+    let isDragging = false;
+    let startX = 0;
+
+    thumb.addEventListener('pointerdown', (e) => {
+        if (verifiedInput.value === 'true') return;
+        isDragging = true;
+        startX = e.clientX - thumb.offsetLeft;
+        thumb.setPointerCapture(e.pointerId);
+    });
+
+    thumb.addEventListener('pointermove', (e) => {
+        if (!isDragging) return;
+        let moveX = e.clientX - startX;
+        const maxMove = track.clientWidth - thumb.clientWidth - 8;
+        
+        if (moveX < 0) moveX = 0;
+        if (moveX > maxMove) moveX = maxMove;
+
+        thumb.style.left = moveX + 'px';
+
+        if (moveX >= maxMove - 5) {
+            isDragging = false;
+            verifiedInput.value = 'true';
+            thumb.innerHTML = '&#x2713;';
+            thumb.classList.remove('bg-rose-500', 'hover:bg-rose-600', 'cursor-pointer');
+            thumb.classList.add('bg-green-500', 'cursor-default');
+            track.classList.remove('bg-gray-200');
+            track.classList.add('bg-green-50');
+            text.textContent = 'Verified Successfully';
+            text.classList.remove('text-gray-500');
+            text.classList.add('text-green-600', 'font-semibold');
+            sliderError.classList.add('hidden');
+        }
+    });
+
+    thumb.addEventListener('pointerup', () => {
+        if (verifiedInput.value !== 'true') {
+            isDragging = false;
+            thumb.style.left = '0px';
+        }
+    });
+
+    // Real-time client-side validation check before submitting
+    function validateForm(e) {
+        const errorBanner = document.getElementById('formErrorBanner');
+        errorBanner.classList.add('hidden');
+
+        const password = document.getElementById('passwordInput').value;
+        const passwordRegex = /^(?=.*[A-Z])(?=.*\d).{8,}$/;
+
+        if (!passwordRegex.test(password)) {
+            e.preventDefault();
+            errorBanner.textContent = 'Password does not meet the required criteria (at least 8 chars, 1 uppercase, 1 number).';
+            errorBanner.classList.remove('hidden');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            return false;
+        }
+
+        if (verifiedInput.value !== 'true') {
+            e.preventDefault();
+            sliderError.classList.remove('hidden');
+            return false;
+        }
+        return true;
+    }
+</script>
 <%- include('partials/footer') %>
