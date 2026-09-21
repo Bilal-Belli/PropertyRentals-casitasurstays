@@ -16,19 +16,21 @@
                         const msgs = convo.messages || [];
                         const latestMsg = msgs[msgs.length - 1] || {};
                 %>
-                    <div onclick="selectConversation('<%= convo.conversationId %>')" class="conversation-item p-4 hover:bg-gray-100 cursor-pointer transition flex items-center gap-3" data-conversation="<%= convo.conversationId %>">
-                        <div class="w-10 h-10 rounded-full bg-rose-100 text-rose-600 font-bold flex items-center justify-center text-sm flex-shrink-0">
+                    <div class="conversation-item p-4 hover:bg-gray-100 transition flex items-center gap-3" data-conversation="<%= convo.conversationId %>">
+                        <div onclick="selectConversation('<%= convo.conversationId %>')" class="w-10 h-10 rounded-full bg-rose-100 text-rose-600 font-bold flex items-center justify-center text-sm flex-shrink-0 cursor-pointer">
                             <%= (convo.userName || 'G').charAt(0).toUpperCase() %>
                         </div>
-                        <div class="overflow-hidden flex-grow">
+                        <div class="overflow-hidden flex-grow cursor-pointer" onclick="selectConversation('<%= convo.conversationId %>')">
                             <div class="flex justify-between items-center mb-1">
                                 <h4 class="font-bold text-xs text-gray-900 truncate"><%= convo.userName %></h4>
                                 <span class="text-[10px] text-gray-400"><%= latestMsg.date ? new Date(latestMsg.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '' %></span>
                             </div>
-                            <div class="flex items-center gap-1 mb-1">
-                                <span class="text-[9px] bg-rose-50 text-rose-600 px-1.5 py-0.2 rounded font-semibold">Prop ID: <%= convo.propertyId %></span>
-                            </div>
                             <p class="text-xs text-gray-500 truncate"><%= latestMsg.message || '' %></p>
+                        </div>
+                        <div class="flex-shrink-0" onclick="event.stopPropagation()">
+                            <a href="/property/<%= convo.propertyId %>" target="_blank" title="View Property" class="text-[10px] bg-rose-50 hover:bg-rose-100 text-rose-600 px-2 py-1 rounded font-semibold inline-flex items-center gap-0.5 transition">
+                                ID <%= convo.propertyId %>
+                            </a>
                         </div>
                     </div>
                 <% 
@@ -51,12 +53,12 @@
             </div>
         </div>
 
-        <!-- Scrollable Chat Feed Area (min-h-0 and flex-grow ensure it takes available space and scrolls internally without overflowing) -->
+        <!-- Scrollable Chat Feed Area -->
         <div id="activeChatFeed" class="flex-grow min-h-0 p-4 sm:p-6 overflow-y-auto space-y-3 bg-gray-50/30 flex flex-col" style="scrollbar-width: thin; scrollbar-color: #cbd5e1 #f8fafc;">
             <div class="text-center text-gray-400 text-xs my-auto">Choose a chat to view and reply</div>
         </div>
 
-        <!-- Pinned Reply Form at the Bottom (flex-shrink-0 guarantees it never collapses or hides) -->
+        <!-- Pinned Reply Form at the Bottom -->
         <form id="adminReplyForm" onsubmit="sendAdminReply(event)" class="p-3 bg-white border-t border-gray-200 flex gap-2 hidden flex-shrink-0 z-30 shadow-md">
             <input type="text" id="adminReplyInput" placeholder="Type your reply as admin..." required class="flex-grow border border-gray-300 rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:border-rose-500">
             <button type="submit" class="bg-rose-500 hover:bg-rose-600 text-white px-4 sm:px-5 py-2.5 rounded-xl text-xs font-semibold transition flex-shrink-0">Send</button>
@@ -86,7 +88,7 @@
         const feedEl = document.getElementById('activeChatFeed');
         const replyFormEl = document.getElementById('adminReplyForm');
 
-        titleTextEl.innerHTML = `Chat with ${convo.userName} <span class="text-[11px] font-normal text-gray-500 hidden sm:inline">(Property ID: ${convo.propertyId})</span>`;
+        titleTextEl.innerHTML = `Chat with ${convo.userName} <span class="text-[11px] font-normal text-gray-500 hidden sm:inline">(<a href="/property/${convo.propertyId}" target="_blank" class="text-rose-600 hover:underline font-semibold inline-flex items-center gap-0.5">Property #${convo.propertyId}</a>)</span>`;
         replyFormEl.classList.remove('hidden');
         feedEl.innerHTML = '';
 

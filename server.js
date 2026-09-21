@@ -557,7 +557,6 @@ app.post('/admin/properties/reorder', (req, res) => {
     if (!Array.isArray(order)) return res.status(400).json({ error: 'Invalid data' });
 
     const properties = readJSON('properties.json');
-    // Sort properties array according to the new order array
     properties.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
     writeJSON('properties.json', properties);
     res.json({ success: true });

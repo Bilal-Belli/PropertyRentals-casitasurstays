@@ -11,7 +11,7 @@
                     <table class="w-full text-left border-collapse text-sm min-w-[600px]">
                         <thead>
                             <tr class="bg-gray-50/50 border-b border-gray-200 text-gray-600 text-xs uppercase">
-                                <th class="p-4">Property ID</th>
+                                <th class="p-4">Property</th>
                                 <th class="p-4">Dates</th>
                                 <th class="p-4">Status</th>
                             </tr>
@@ -19,7 +19,11 @@
                         <tbody>
                             <% reservations.forEach(resv => { %>
                                 <tr class="border-b border-gray-100 hover:bg-gray-50">
-                                    <td class="p-4 font-semibold text-gray-900"><%= resv.propertyId %></td>
+                                    <td class="p-4 font-semibold text-gray-900">
+                                        <a href="/property/<%= resv.propertyId %>" class="text-rose-600 hover:underline flex items-center gap-1">
+                                            Property #<%= resv.propertyId %> &rarr;
+                                        </a>
+                                    </td>
                                     <td class="p-4 text-gray-600 whitespace-nowrap"><%= resv.checkIn %> to <%= resv.checkOut %></td>
                                     <td class="p-4">
                                         <span class="px-2.5 py-1 rounded-full text-xs font-semibold 
@@ -86,12 +90,12 @@
                     </div>
                 </div>
 
-                <!-- Chat Feed Scroll Area (flex-grow + min-h-0 ensures independent scrolling without overflowing containers) -->
+                <!-- Chat Feed Scroll Area -->
                 <div id="activeUserChatFeed" class="flex-grow min-h-0 p-4 sm:p-6 overflow-y-auto space-y-3 bg-gray-50/30 flex flex-col" style="scrollbar-width: thin; scrollbar-color: #cbd5e1 #f8fafc;">
                     <div class="text-center text-gray-400 text-xs my-auto">Choose a conversation to start chatting</div>
                 </div>
 
-                <!-- User Reply Form (flex-shrink-0 guarantees it stays permanently pinned at the bottom) -->
+                <!-- User Reply Form -->
                 <form id="userReplyForm" onsubmit="sendUserReply(event)" class="p-3 bg-white border-t border-gray-200 flex gap-2 hidden flex-shrink-0 z-30 shadow-md">
                     <input type="text" id="userReplyInput" placeholder="Type your reply to host..." required class="flex-grow border border-gray-300 rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:border-rose-500">
                     <button type="submit" class="bg-rose-500 hover:bg-rose-600 text-white px-4 sm:px-5 py-2.5 rounded-xl text-xs font-semibold transition flex-shrink-0">Send</button>
@@ -139,7 +143,7 @@
         const feedEl = document.getElementById('activeUserChatFeed');
         const replyFormEl = document.getElementById('userReplyForm');
 
-        titleTextEl.innerHTML = `Discussion regarding Property ID: ${convo.propertyId}`;
+        titleTextEl.innerHTML = `Discussion regarding <a href="/property/${convo.propertyId}" target="_blank" class="text-rose-600 hover:underline font-semibold inline-flex items-center gap-1">Property #${convo.propertyId}</a>`;
         replyFormEl.classList.remove('hidden');
         feedEl.innerHTML = '';
 
